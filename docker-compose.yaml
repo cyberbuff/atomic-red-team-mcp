@@ -1,0 +1,12 @@
+services:
+  atomic-red-team-mcp-server:
+    build: .
+    container_name: atomic-red-team-mcp-server
+    ports:
+      - "2786:8000"
+    environment:
+      - MCP_TRANSPORT=streamable-http
+      - MCP_PORT=8000
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
