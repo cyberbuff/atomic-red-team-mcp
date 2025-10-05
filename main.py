@@ -213,6 +213,8 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
 4. If validation fails, fix the issues and validate again until successful
 """,
     lifespan=app_lifespan,
+    host=os.getenv("MCP_HOST", "0.0.0.0"),
+    port=os.getenv("MCP_PORT", 8000),
     auth=auth,
 )
 
