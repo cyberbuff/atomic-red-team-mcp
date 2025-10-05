@@ -101,12 +101,3 @@ def run_test(guid: UUID, input_arguments: dict):
         # Restore patched methods
         Base._set_input_arguments = original_set_input_arguments
         Runner.print_process_output = original_print_process_output
-
-
-if __name__ == "__main__":
-    print(
-        run_test(
-            "4ff64f0b-aaf2-4866-b39d-38d9791407cc",
-            {"output_file": "/tmp/processes.txt"},
-        )
-    )
