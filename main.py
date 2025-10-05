@@ -83,7 +83,7 @@ def load_atomics() -> List[MetaAtomic]:
     atomics = []
 
     for file in glob.glob(f"{atomics_path}/T*/T*.yaml"):
-        with open(file, "r", encoding="utf-8") as f:
+        with open(file, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         try:
             # Parse YAML content
