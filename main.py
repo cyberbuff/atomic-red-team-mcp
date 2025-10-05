@@ -7,9 +7,9 @@ An MCP server that provides access to Atomic Red Team tests for security profess
 import glob
 import logging
 import os
+import platform
 import re
 import shutil
-import platform
 import tempfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -23,7 +23,7 @@ from fastmcp import Context, FastMCP
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
 
 from models import Atomic, MetaAtomic, Technique
-from utils import run_test, atomics_dir
+from utils import atomics_dir, run_test
 
 # Get version from package metadata
 try:
@@ -35,10 +35,18 @@ except PackageNotFoundError:
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+logger = logging.getLogger(__name__)
 # Disable INFO messages from mcp.server.lowlevel.server
 logging.getLogger("mcp.server.lowlevel.server").setLevel(logging.ERROR)
 logging.getLogger("mcp.server.streamable_http_manager").setLevel(logging.ERROR)
-logger = logging.getLogger(__name__)
+logging.getLogger("sse_starlette.sse").setLevel(logging.ERROR)
+
+is_http = os.getenv("MCP_TRANSPORT", "stdio") == "streamable-http"
+is_execution_enabled = os.getenv("ENABLE_ATOMIC_EXECUTION", "false").lower() in [
+    "true",
+    "1",
+    "yes",
+]
 
 
 @dataclass
@@ -165,9 +173,8 @@ def configure_auth():
 # Configure for Docker deployment with host binding
 auth = configure_auth()
 
-mcp = FastMCP(
-    "Atomic Red Team MCP",
-    instructions="""Use this MCP server to access and create Atomic Red Team tests for security testing.
+instructions = """
+Use this MCP server to access and create Atomic Red Team tests for security testing.
 
 AVAILABLE TOOLS:
 - `query_atomics`: Search existing atomic tests by technique ID, name, description, or platform
@@ -211,7 +218,22 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
 2. Create the atomic test following the schema and best practices above
 3. Call `validate_atomic` tool with the generated YAML to ensure it's valid
 4. If validation fails, fix the issues and validate again until successful
-""",
+"""
+
+if is_http and is_execution_enabled:
+    instructions += """
+🚀 ATOMIC TEST EXECUTION:
+- This is a remote MCP server with atomic test execution enabled
+- Execute atomic tests using the `execute_atomic` tool
+- You will be prompted for input arguments if needed
+- Use `server_info` to get the remote MCP server platform information
+- The `supported_platforms` field should reflect the remote server platform, not the host platform
+- There may be numerous Atomic Red Team MCP servers running on different platforms, so you need to check the platform of the remote MCP server before executing the atomic test.
+"""
+
+mcp = FastMCP(
+    "Atomic Red Team MCP",
+    instructions=instructions,
     lifespan=app_lifespan,
     host=os.getenv("MCP_HOST", "0.0.0.0"),
     port=os.getenv("MCP_PORT", 8000),
@@ -430,58 +452,56 @@ def validate_atomic(yaml_string: str, ctx: Context) -> dict:
         return {"valid": False, "error": f"Unexpected validation error: {e}"}
 
 
-# Conditionally register execute_atomic tool based on environment variable
-if os.getenv("ENABLE_ATOMIC_EXECUTION", "false").lower() in ["true", "1", "yes"]:
+@mcp.tool(enabled=is_execution_enabled)
+async def execute_atomic(
+    ctx: Context,
+    auto_generated_guid: Optional[str] = None,
+) -> str:
+    """Execute an atomic test by technique ID, name, or GUID.
 
-    @mcp.tool
-    async def execute_atomic(
-        ctx: Context,
-        auto_generated_guid: Optional[str] = None,
-    ) -> str:
-        """Execute an atomic test by technique ID, name, or GUID.
+        If technique_id or name is provided, use `query_atomics` to get the atomic test's auto_generated_guid and then execute the atomic test.
 
-            If technique_id or name is provided, use `query_atomics` to get the atomic test's auto_generated_guid and then execute the atomic test.
+    Args:
+        auto_generated_guid: The GUID of the atomic test
 
-        Args:
-            auto_generated_guid: The GUID of the atomic test
+    At least one parameter must be provided.
+    """
+    guid_to_find = None
+    if not auto_generated_guid:
+        result = await ctx.elicit(
+            "What's the atomic test you want to execute?", response_type=str
+        )
+        if result.action == "accept":
+            guid_to_find = result.data
+        elif result.action == "decline":
+            return "Atomic test not provided"
+        else:  # cancel
+            return "Operation cancelled"
+    else:
+        guid_to_find = auto_generated_guid
 
-        At least one parameter must be provided.
-        """
-        if not auto_generated_guid:
-            result = await ctx.elicit(
-                "What's the atomic test you want to execute?", response_type=str
-            )
-            if result.action == "accept":
-                atomic = result.data
-            elif result.action == "decline":
-                return "Atomic test not provided"
-            else:  # cancel
-                return "Operation cancelled"
-        else:
-            atomic = auto_generated_guid
+    atomics: List[Atomic] = ctx.request_context.lifespan_context.atomics
 
-        atomics: List[Atomic] = ctx.request_context.lifespan_context.atomics
+    matching_atomic = None
 
-        matching_atomic = None
+    for atomic in atomics:
+        if str(atomic.auto_generated_guid) == guid_to_find:
+            matching_atomic = atomic
+            break
 
-        for atomic in atomics:
-            if str(atomic.auto_generated_guid) == auto_generated_guid:
-                matching_atomic = atomic
-                break
+    if not matching_atomic:
+        return "No atomic test found"
+    input_arguments = {}
+    if len(matching_atomic.input_arguments) > 0:
+        logger.info(
+            f"The atomic test '{matching_atomic.name}' has {len(matching_atomic.input_arguments)} input argument(s)"
+        )
 
-        if not matching_atomic:
-            return "No atomic test found"
-        input_arguments = {}
-        if len(matching_atomic.input_arguments) > 0:
-            logger.info(
-                f"The atomic test '{matching_atomic.name}' has {len(matching_atomic.input_arguments)} input argument(s)"
-            )
+        for key, value in matching_atomic.input_arguments.items():
+            default_value = value.get("default", "")
+            description = value.get("description", "No description available")
 
-            for key, value in matching_atomic.input_arguments.items():
-                default_value = value.get("default", "")
-                description = value.get("description", "No description available")
-
-                question = f"""
+            question = f"""
 Input argument: {key}
 Description: {description}
 Default value: {default_value}
@@ -489,29 +509,29 @@ Default value: {default_value}
 Would you like to use the default value or provide a custom value?
 (Reply with "default" to use the default, or provide your custom value)
 """
-                result = await ctx.elicit(question, response_type=str)
+            result = await ctx.elicit(question, response_type=str)
 
-                if result.action == "accept":
-                    response = result.data.strip().lower()
-                    if response == "default" or response == "use default":
-                        input_arguments[key] = default_value
-                        logger.info(
-                            f"{matching_atomic.auto_generated_guid} - Using default value for '{key}': {default_value}"
-                        )
-                    else:
-                        # Use the provided value
-                        input_arguments[key] = result.data.strip()
-                        logger.info(
-                            f"{matching_atomic.auto_generated_guid}  - Using custom value for '{key}': {result.data.strip()}"
-                        )
-                elif result.action == "decline":
-                    # If declined, use default
+            if result.action == "accept":
+                response = result.data.strip().lower()
+                if response == "default" or response == "use default":
                     input_arguments[key] = default_value
-                    logger.info(f"Using default value for '{key}': {default_value}")
-                else:  # cancel
-                    return "Operation cancelled by user"
+                    logger.info(
+                        f"{matching_atomic.auto_generated_guid} - Using default value for '{key}': {default_value}"
+                    )
+                else:
+                    # Use the provided value
+                    input_arguments[key] = result.data.strip()
+                    logger.info(
+                        f"{matching_atomic.auto_generated_guid}  - Using custom value for '{key}': {result.data.strip()}"
+                    )
+            elif result.action == "decline":
+                # If declined, use default
+                input_arguments[key] = default_value
+                logger.info(f"Using default value for '{key}': {default_value}")
+            else:  # cancel
+                return "Operation cancelled by user"
 
-        return run_test(matching_atomic.auto_generated_guid, input_arguments)
+    return run_test(matching_atomic.auto_generated_guid, input_arguments)
 
 
 def main():
