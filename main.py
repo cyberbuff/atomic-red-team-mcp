@@ -380,7 +380,7 @@ def query_atomics(
             ):
                 matching_atomics.append(atomic)
 
-        ctx.info(f"Query '{query}' returned {len(matching_atomics)} results")
+        logger.info(f"Query '{query}' returned {len(matching_atomics)} results")
         return matching_atomics
 
     except Exception as e:
