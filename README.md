@@ -38,12 +38,12 @@ docker run --rm -i ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 ```
 
 ### Platform-Specific Guides
-
-- **[Claude Desktop & Claude Code](guides/claude.md)** - Installation guide for Anthropic's Claude Desktop app and Claude Code CLI
-- **[Cursor](guides/cursor.md)** - Installation guide for Cursor IDE
-- **[Windsurf](guides/windsurf.md)** - Installation guide for Windsurf editor
-- **[Google AI Studio / Gemini](guides/gemini.md)** - Installation guide for Google's AI tools
-- **[Other Tools](guides/other.md)** - Cline, Zed, Docker, Docker Compose, and generic MCP clients
+- **[VSCode](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/code.md)** - Installation guide for VSCode
+- **[Claude Desktop & Claude Code](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/claude.md)** - Installation guide for Anthropic's Claude Desktop app and Claude Code CLI
+- **[Cursor](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/cursor.md)** - Installation guide for Cursor IDE
+- **[Windsurf](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/windsurf.md)** - Installation guide for Windsurf editor
+- **[Google AI Studio / Gemini](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/gemini.md)** - Installation guide for Google's AI tools
+- **[Other Tools](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/other.md)** - Cline, Zed, and generic MCP clients
 
 ### Installation Methods
 
