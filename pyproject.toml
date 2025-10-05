@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atomic-red-team-mcp"
-version = "1.0.0"
+version = "1.0.1"
 description = "MCP server providing access to Atomic Red Team security tests with search, validation, and creation capabilities"
 readme = "README.md"
 requires-python = ">=3.10"

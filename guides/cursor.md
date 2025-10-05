@@ -83,4 +83,3 @@ docker pull ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 ```
 
 2. **Restart Cursor**
-
