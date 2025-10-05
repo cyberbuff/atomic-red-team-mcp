@@ -334,7 +334,7 @@ def query_atomics(
         atomics = ctx.request_context.lifespan_context.atomics
 
         if not atomics:
-            ctx.warning("No atomics loaded in memory")
+            logger.warning("No atomics loaded in memory")
             return []
 
         # Apply filters
