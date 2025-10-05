@@ -314,4 +314,3 @@ class Technique(BaseModel):
         for index in range(len(self.atomic_tests)):
             self.atomic_tests[index].technique_id = self.attack_technique
             self.atomic_tests[index].technique_name = self.display_name
-

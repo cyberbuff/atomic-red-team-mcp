@@ -83,7 +83,7 @@ def load_atomics() -> List[MetaAtomic]:
     atomics = []
 
     for file in glob.glob(f"{atomics_path}/T*/T*.yaml"):
-        with open(file, "r") as f:
+        with open(file, "r", encoding="utf-8") as f:
             content = f.read()
         try:
             # Parse YAML content
@@ -190,7 +190,9 @@ def read_document(technique_id: str) -> str:
         )
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        # Normalize path for Windows compatibility
+        normalized_path = os.path.normpath(file_path)
+        with open(normalized_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         return content
     except (IOError, OSError) as e:
@@ -304,11 +306,11 @@ def query_atomics(
 @mcp.tool()
 def get_validation_schema() -> dict:
     """Get the JSON schema that defines the structure and requirements for atomic tests.
-    
+
     This schema defines all required and optional fields for creating valid atomic tests.
     Use this to understand what fields are needed when creating a new atomic test.
     The schema follows the official Atomic Red Team format.
-    
+
     Returns:
         A JSON schema dictionary containing field definitions, types, and validation rules.
     """
@@ -318,7 +320,7 @@ def get_validation_schema() -> dict:
 @mcp.tool()
 def validate_atomic(yaml_string: str) -> dict:
     """Validate an atomic test YAML string against the official Atomic Red Team schema.
-    
+
     This tool checks if your atomic test follows the correct structure and includes all
     required fields. Use this before finalizing any atomic test to ensure it meets
     the quality standards and can be properly parsed by Atomic Red Team tools.
@@ -373,4 +375,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
