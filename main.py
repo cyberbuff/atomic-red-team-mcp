@@ -182,7 +182,15 @@ AVAILABLE TOOLS:
 - `refresh_atomics`: Update atomic tests from GitHub repository
 - `get_validation_schema`: Get the JSON schema for atomic test structure
 - `validate_atomic`: Validate atomic test YAML against the schema
+- `server_info`: Get server information including version, transport, and OS platform
+"""
 
+if is_execution_enabled:
+    instructions += """
+- `execute_atomic`: Execute an atomic test by GUID (requires ENABLE_ATOMIC_EXECUTION=true)
+"""
+
+instructions += """
 CREATING NEW ATOMIC TESTS:
 When creating atomic tests, you are acting as an Offensive Security expert. Follow these best practices:
 
@@ -458,7 +466,7 @@ async def execute_atomic(
     ctx: Context,
     auto_generated_guid: Optional[str] = None,
 ) -> str:
-    """Execute an atomic test by technique ID, name, or GUID.
+    """Execute an atomic test by GUID.
 
         If technique_id or name is provided, use `query_atomics` to get the atomic test's auto_generated_guid and then execute the atomic test.
 

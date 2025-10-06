@@ -319,7 +319,7 @@ lsof -i :8000
 # Or
 netstat -an | grep 8000
 
-# Test connection 
+# Test connection
 curl http://localhost:8000/health
 ```
 
@@ -463,8 +463,8 @@ Edit `~/.cursor/mcp.json` (macOS/Linux) or `%USERPROFILE%\.cursor\mcp.json` (Win
 
 ### Claude Desktop Configuration
 
-**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`  
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`  
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
 ```json
@@ -670,7 +670,7 @@ tail -f /tmp/atomic-mcp-error.log
 
 ### 3. SSH Tunneling (Recommended for Remote Access)
 
-Set `MCP_HOST=127.0.0.1` on all the machines(windows, linux, and macOS) and enable SSH tunneling to access the MCP servers. 
+Set `MCP_HOST=127.0.0.1` on all the machines(windows, linux, and macOS) and enable SSH tunneling to access the MCP servers.
 
 **Setup SSH tunnels from client to each server:**
 
