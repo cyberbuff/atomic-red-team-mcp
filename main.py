@@ -531,7 +531,7 @@ Would you like to use the default value or provide a custom value?
                     # Use the provided value
                     input_arguments[key] = result.data.strip()
                     logger.info(
-                        f"{matching_atomic.auto_generated_guid}  - Using custom value for '{key}': {result.data.strip()}"
+                        f"{matching_atomic.auto_generated_guid} - Using custom value for '{key}': {result.data.strip()}"
                     )
             elif result.action == "decline":
                 # If declined, use default
