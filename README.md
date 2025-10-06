@@ -10,6 +10,7 @@ The server provides the following MCP tools:
 - `refresh_atomics` - Download latest atomics from GitHub
 - `validate_atomic` - Validate atomic test YAML
 - `get_validation_schema` - Get the atomic test schema
+- `execute_atomic` - Execute atomic tests (requires `ENABLE_ATOMIC_EXECUTION=true`)
 
 And resources:
 - `file://documents/{technique_id}` - Read atomic test files by technique ID
@@ -55,10 +56,68 @@ Each platform supports multiple installation methods:
 
 ## Configuration
 
-Environment variables:
+### Environment Variables
+
+#### Server Configuration
 - `MCP_TRANSPORT` - Transport protocol (stdio, sse, streamable-http)
-- `MCP_HOST` - Host address to bind the server (default: 0.0.0.0)
-- `MCP_PORT` - Port for HTTP transports (default: 8000)
+
+#### Repository Configuration
 - `GITHUB_URL` - GitHub URL for atomics repository (default: https://github.com)
 - `GITHUB_USER` - GitHub user/org (default: redcanaryco)
 - `GITHUB_REPO` - Repository name (default: atomic-red-team)
+
+#### Security Configuration
+- `ENABLE_ATOMIC_EXECUTION` - Enable the `execute_atomic` tool (default: false). Set to `true`, `1`, or `yes` to enable. **⚠️ WARNING: Only enable in controlled environments as this allows executing potentially dangerous security tests.**
+- Enable Authentication if you are hosting a remote MCP server
+
+#### Authentication Configuration
+- `MCP_AUTH_TOKEN` - Static bearer token for authentication (optional, authentication disabled if not set)
+- `MCP_AUTH_CLIENT_ID` - Client identifier for authenticated requests (default: authorized-client)
+
+### Enabling Atomic Test Execution
+
+By default, the `execute_atomic` tool is **disabled** for safety reasons. To enable it:
+
+```bash
+# Using uvx
+ENABLE_ATOMIC_EXECUTION=true uvx atomic-red-team-mcp
+```
+
+**⚠️ Security Warning**: Only enable atomic test execution in controlled, isolated environments (like test VMs or sandboxes). These tests can modify system state, create files, execute commands, and perform actions that may be flagged as malicious by security tools.
+
+### Authentication
+
+The server supports static token authentication for securing access to the MCP tools and resources. When enabled, clients must include a bearer token in the `Authorization` header:
+
+```
+Authorization: Bearer <your-token>
+```
+
+**To enable authentication:**
+
+1. Set the `MCP_AUTH_TOKEN` environment variable:
+   ```bash
+   export MCP_AUTH_TOKEN="your-secure-token-here"
+   ```
+
+2. Start the server (authentication is automatically enabled)
+
+3. Clients authenticate by including the token in requests:
+   ```bash
+   curl -H "Authorization: Bearer your-secure-token-here" http://localhost:8000
+   ```
+
+**Security Notes:**
+- Authentication is disabled by default (no token required)
+- When `MCP_AUTH_TOKEN` is set, all requests must include a valid bearer token
+- Use strong, randomly generated tokens in production
+- Never commit tokens to version control
+- For development/testing, use a simple token. For production, use a cryptographically secure token
+
+**Example with Docker:**
+```bash
+docker run --rm -i \
+  -e MCP_AUTH_TOKEN="my-secure-token" \
+  -e MCP_AUTH_CLIENT_ID="my-client" \
+  ghcr.io/cyberbuff/atomic-red-team-mcp:latest
+```

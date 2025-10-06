@@ -7,6 +7,9 @@ services:
     environment:
       - MCP_TRANSPORT=streamable-http
       - MCP_PORT=8000
+      # Uncomment to enable static token authentication
+      # - MCP_AUTH_TOKEN=your-secure-token-here
+      # - MCP_AUTH_CLIENT_ID=authorized-client
     stdin_open: true
     tty: true
     restart: unless-stopped
