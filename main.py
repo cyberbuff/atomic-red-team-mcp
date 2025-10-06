@@ -305,7 +305,7 @@ async def refresh_atomics(ctx: Context):
         logger.info(f"Successfully refreshed {len(atomics)} atomics")
         return f"Successfully refreshed {len(atomics)} atomics"
     except Exception as e:
-        logger.error(f"Failed to refresh atomics: {e}")
+        logger.error(f"Failed to refresh atomics: {e}", exc_info=True)
         raise
 
 
