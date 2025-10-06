@@ -96,7 +96,7 @@ def run_test(guid: UUID, input_arguments: dict):
 
         return json.dumps(captured_outputs)
     except Exception as e:
-        return f"Error running test: {e}"
+        return json.dumps({"error": f"Error running test: {e}"})
     finally:
         # Restore patched methods
         Base._set_input_arguments = original_set_input_arguments
