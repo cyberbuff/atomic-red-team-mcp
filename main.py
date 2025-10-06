@@ -306,7 +306,7 @@ async def refresh_atomics(ctx: Context):
         return f"Successfully refreshed {len(atomics)} atomics"
     except Exception as e:
         logger.error(f"Failed to refresh atomics: {e}")
-        return "Failed to refresh atomics"
+        raise
 
 
 @mcp.tool()
