@@ -501,7 +501,7 @@ async def execute_atomic(
     if not matching_atomic:
         return "No atomic test found"
     input_arguments = {}
-    if len(matching_atomic.input_arguments) > 0:
+    if matching_atomic.input_arguments:
         logger.info(
             f"The atomic test '{matching_atomic.name}' has {len(matching_atomic.input_arguments)} input argument(s)"
         )
