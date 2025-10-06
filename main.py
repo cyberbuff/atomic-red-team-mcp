@@ -21,6 +21,7 @@ import git
 import yaml
 from fastmcp import Context, FastMCP
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
+from starlette.responses import JSONResponse
 
 from models import Atomic, MetaAtomic, Technique
 from utils import atomics_dir, run_test
@@ -532,6 +533,11 @@ Would you like to use the default value or provide a custom value?
                 return "Operation cancelled by user"
 
     return run_test(matching_atomic.auto_generated_guid, input_arguments)
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):
+    return JSONResponse({"status": "healthy", "service": "atomic-red-team-mcp"})
 
 
 def main():

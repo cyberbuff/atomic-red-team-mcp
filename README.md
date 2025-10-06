@@ -73,7 +73,6 @@ Each platform supports multiple installation methods:
 #### Authentication Configuration
 - `MCP_AUTH_TOKEN` - Static bearer token for authentication (optional, authentication disabled if not set)
 - `MCP_AUTH_CLIENT_ID` - Client identifier for authenticated requests (default: authorized-client)
-- `MCP_AUTH_SCOPES` - Comma-separated list of scopes (default: read:atomics,execute:atomics)
 
 ### Enabling Atomic Test Execution
 
