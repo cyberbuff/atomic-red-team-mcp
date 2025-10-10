@@ -50,11 +50,11 @@ Claude Desktop requires manual configuration file editing.
 				"--rm",
 				"-i",
 				"-e",
-				"MCP_TRANSPORT",
+				"ART_MCP_TRANSPORT",
 				"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
 			],
 			"env": {
-				"MCP_TRANSPORT": "stdio"
+				"ART_MCP_TRANSPORT": "stdio"
 			}
 		}
 	}

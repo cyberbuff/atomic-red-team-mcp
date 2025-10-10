@@ -21,7 +21,7 @@ USER appuser
 
 # Make sure 'uv' is on PATH for the appuser
 ENV PATH="/home/appuser/.local/bin:/usr/local/bin:${PATH}"
-ENV MCP_TRANSPORT="streamable-http"
+ENV ART_MCP_TRANSPORT="streamable-http"
 
 # Copy and install only requirements first (caching)
 COPY --chown=appuser:appuser pyproject.toml uv.lock ./

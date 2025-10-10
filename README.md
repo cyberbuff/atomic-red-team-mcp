@@ -10,7 +10,7 @@ The server provides the following MCP tools:
 - `refresh_atomics` - Download latest atomics from GitHub
 - `validate_atomic` - Validate atomic test YAML
 - `get_validation_schema` - Get the atomic test schema
-- `execute_atomic` - Execute atomic tests (requires `ENABLE_ATOMIC_EXECUTION=true`)
+- `execute_atomic` - Execute atomic tests (requires `ART_EXECUTION_ENABLED=true`)
 
 And resources:
 - `file://documents/{technique_id}` - Read atomic test files by technique ID
@@ -59,20 +59,23 @@ Each platform supports multiple installation methods:
 ### Environment Variables
 
 #### Server Configuration
-- `MCP_TRANSPORT` - Transport protocol (stdio, sse, streamable-http)
+- `ART_MCP_TRANSPORT` - Transport protocol (stdio, sse, streamable-http)
+- `ART_MCP_HOST` - Server host address (default: 0.0.0.0)
+- `ART_MCP_PORT` - Server port number (default: 8000)
 
 #### Repository Configuration
-- `GITHUB_URL` - GitHub URL for atomics repository (default: https://github.com)
-- `GITHUB_USER` - GitHub user/org (default: redcanaryco)
-- `GITHUB_REPO` - Repository name (default: atomic-red-team)
+- `ART_GITHUB_URL` - GitHub URL for atomics repository (default: https://github.com)
+- `ART_GITHUB_USER` - GitHub user/org (default: redcanaryco)
+- `ART_GITHUB_REPO` - Repository name (default: atomic-red-team)
+- `ART_DATA_DIR` - Local directory path where atomic test files are stored (default: ./atomics)
 
 #### Security Configuration
-- `ENABLE_ATOMIC_EXECUTION` - Enable the `execute_atomic` tool (default: false). Set to `true`, `1`, or `yes` to enable. **⚠️ WARNING: Only enable in controlled environments as this allows executing potentially dangerous security tests.**
+- `ART_EXECUTION_ENABLED` - Enable the `execute_atomic` tool (default: false). Set to `true`, `1`, or `yes` to enable. **⚠️ WARNING: Only enable in controlled environments as this allows executing potentially dangerous security tests.**
 - Enable Authentication if you are hosting a remote MCP server
 
 #### Authentication Configuration
-- `MCP_AUTH_TOKEN` - Static bearer token for authentication (optional, authentication disabled if not set)
-- `MCP_AUTH_CLIENT_ID` - Client identifier for authenticated requests (default: authorized-client)
+- `ART_AUTH_TOKEN` - Static bearer token for authentication (optional, authentication disabled if not set)
+- `ART_AUTH_CLIENT_ID` - Client identifier for authenticated requests (default: authorized-client)
 
 ### Enabling Atomic Test Execution
 
@@ -80,7 +83,7 @@ By default, the `execute_atomic` tool is **disabled** for safety reasons. To ena
 
 ```bash
 # Using uvx
-ENABLE_ATOMIC_EXECUTION=true uvx atomic-red-team-mcp
+ART_EXECUTION_ENABLED=true uvx atomic-red-team-mcp
 ```
 
 **⚠️ Security Warning**: Only enable atomic test execution in controlled, isolated environments (like test VMs or sandboxes). These tests can modify system state, create files, execute commands, and perform actions that may be flagged as malicious by security tools.
@@ -95,9 +98,9 @@ Authorization: Bearer <your-token>
 
 **To enable authentication:**
 
-1. Set the `MCP_AUTH_TOKEN` environment variable:
+1. Set the `ART_AUTH_TOKEN` environment variable:
    ```bash
-   export MCP_AUTH_TOKEN="your-secure-token-here"
+   export ART_AUTH_TOKEN="your-secure-token-here"
    ```
 
 2. Start the server (authentication is automatically enabled)
@@ -109,7 +112,7 @@ Authorization: Bearer <your-token>
 
 **Security Notes:**
 - Authentication is disabled by default (no token required)
-- When `MCP_AUTH_TOKEN` is set, all requests must include a valid bearer token
+- When `ART_AUTH_TOKEN` is set, all requests must include a valid bearer token
 - Use strong, randomly generated tokens in production
 - Never commit tokens to version control
 - For development/testing, use a simple token. For production, use a cryptographically secure token
@@ -117,7 +120,7 @@ Authorization: Bearer <your-token>
 **Example with Docker:**
 ```bash
 docker run --rm -i \
-  -e MCP_AUTH_TOKEN="my-secure-token" \
-  -e MCP_AUTH_CLIENT_ID="my-client" \
+  -e ART_AUTH_TOKEN="my-secure-token" \
+  -e ART_AUTH_CLIENT_ID="my-client" \
   ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 ```

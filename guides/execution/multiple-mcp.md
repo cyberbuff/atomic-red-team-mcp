@@ -74,10 +74,10 @@ uv python pin 3.12
 
 ```powershell
 # Set environment variables
-$env:MCP_TRANSPORT = "streamable-http"
-$env:ENABLE_ATOMIC_EXECUTION = "true"
-$env:MCP_PORT = "8000"
-$env:MCP_HOST = "0.0.0.0"
+$env:ART_MCP_TRANSPORT = "streamable-http"
+$env:ART_EXECUTION_ENABLED = "true"
+$env:ART_MCP_PORT = "8000"
+$env:ART_MCP_HOST = "0.0.0.0"
 
 # Run the MCP server
 uvx atomic-red-team-mcp
@@ -92,11 +92,11 @@ Write-Host "Your authentication token: $TOKEN" -ForegroundColor Green
 Write-Host "Save this token for client configuration!" -ForegroundColor Yellow
 
 # Set environment variables with authentication
-$env:MCP_TRANSPORT = "streamable-http"
-$env:ENABLE_ATOMIC_EXECUTION = "true"
-$env:MCP_PORT = "8000"
-$env:MCP_HOST = "0.0.0.0"
-$env:MCP_AUTH_TOKEN = $TOKEN
+$env:ART_MCP_TRANSPORT = "streamable-http"
+$env:ART_EXECUTION_ENABLED = "true"
+$env:ART_MCP_PORT = "8000"
+$env:ART_MCP_HOST = "0.0.0.0"
+$env:ART_AUTH_TOKEN = $TOKEN
 
 # Run the MCP server
 uvx atomic-red-team-mcp
@@ -107,11 +107,11 @@ uvx atomic-red-team-mcp
 ```powershell
 # Create a PowerShell script to run the server
 $scriptContent = @"
-`$env:MCP_TRANSPORT = 'streamable-http'
-`$env:ENABLE_ATOMIC_EXECUTION = 'true'
-`$env:MCP_PORT = '8000'
-`$env:MCP_HOST = '0.0.0.0'
-`$env:MCP_AUTH_TOKEN = 'YOUR_TOKEN_HERE'
+`$env:ART_MCP_TRANSPORT = 'streamable-http'
+`$env:ART_EXECUTION_ENABLED = 'true'
+`$env:ART_MCP_PORT = '8000'
+`$env:ART_MCP_HOST = '0.0.0.0'
+`$env:ART_AUTH_TOKEN = 'YOUR_TOKEN_HERE'
 uvx atomic-red-team-mcp
 "@
 
@@ -144,10 +144,10 @@ Invoke-WebRequest -Uri http://localhost:8000/health
 
 ```bash
 # Set environment variables
-export MCP_TRANSPORT="streamable-http"
-export ENABLE_ATOMIC_EXECUTION="true"
-export MCP_PORT="8000"
-export MCP_HOST="0.0.0.0"
+export ART_MCP_TRANSPORT="streamable-http"
+export ART_EXECUTION_ENABLED="true"
+export ART_MCP_PORT="8000"
+export ART_MCP_HOST="0.0.0.0"
 
 # Run the MCP server
 uvx atomic-red-team-mcp
@@ -162,11 +162,11 @@ echo "Your authentication token: $TOKEN"
 echo "Save this token for client configuration!"
 
 # Set environment variables with authentication
-export MCP_TRANSPORT="streamable-http"
-export ENABLE_ATOMIC_EXECUTION="true"
-export MCP_PORT="8000"
-export MCP_HOST="0.0.0.0"
-export MCP_AUTH_TOKEN="$TOKEN"
+export ART_MCP_TRANSPORT="streamable-http"
+export ART_EXECUTION_ENABLED="true"
+export ART_MCP_PORT="8000"
+export ART_MCP_HOST="0.0.0.0"
+export ART_AUTH_TOKEN="$TOKEN"
 
 # Run the MCP server
 uvx atomic-red-team-mcp
@@ -185,11 +185,11 @@ After=network.target
 Type=simple
 User=$USER
 WorkingDirectory=$HOME
-Environment="MCP_TRANSPORT=streamable-http"
-Environment="ENABLE_ATOMIC_EXECUTION=true"
-Environment="MCP_PORT=8000"
-Environment="MCP_HOST=0.0.0.0"
-Environment="MCP_AUTH_TOKEN=YOUR_TOKEN_HERE"
+Environment="ART_MCP_TRANSPORT=streamable-http"
+Environment="ART_EXECUTION_ENABLED=true"
+Environment="ART_MCP_PORT=8000"
+Environment="ART_MCP_HOST=0.0.0.0"
+Environment="ART_AUTH_TOKEN=YOUR_TOKEN_HERE"
 ExecStart=$(which uvx) atomic-red-team-mcp
 Restart=always
 RestartSec=10
@@ -229,10 +229,10 @@ curl http://localhost:8000/health
 
 ```bash
 # Set environment variables
-export MCP_TRANSPORT="streamable-http"
-export ENABLE_ATOMIC_EXECUTION="true"
-export MCP_PORT="8000"
-export MCP_HOST="0.0.0.0"
+export ART_MCP_TRANSPORT="streamable-http"
+export ART_EXECUTION_ENABLED="true"
+export ART_MCP_PORT="8000"
+export ART_MCP_HOST="0.0.0.0"
 
 # Run the MCP server
 uvx atomic-red-team-mcp
@@ -247,11 +247,11 @@ echo "Your authentication token: $TOKEN"
 echo "Save this token for client configuration!"
 
 # Set environment variables with authentication
-export MCP_TRANSPORT="streamable-http"
-export ENABLE_ATOMIC_EXECUTION="true"
-export MCP_PORT="8000"
-export MCP_HOST="0.0.0.0"
-export MCP_AUTH_TOKEN="$TOKEN"
+export ART_MCP_TRANSPORT="streamable-http"
+export ART_EXECUTION_ENABLED="true"
+export ART_MCP_PORT="8000"
+export ART_MCP_HOST="0.0.0.0"
+export ART_AUTH_TOKEN="$TOKEN"
 
 # Run the MCP server
 uvx atomic-red-team-mcp
@@ -275,15 +275,15 @@ cat > ~/Library/LaunchAgents/com.atomic-red-team.mcp.plist <<EOF
     </array>
     <key>EnvironmentVariables</key>
     <dict>
-        <key>MCP_TRANSPORT</key>
+        <key>ART_MCP_TRANSPORT</key>
         <string>streamable-http</string>
-        <key>ENABLE_ATOMIC_EXECUTION</key>
+        <key>ART_EXECUTION_ENABLED</key>
         <string>true</string>
-        <key>MCP_PORT</key>
+        <key>ART_MCP_PORT</key>
         <string>8000</string>
-        <key>MCP_HOST</key>
+        <key>ART_MCP_HOST</key>
         <string>0.0.0.0</string>
-        <key>MCP_AUTH_TOKEN</key>
+        <key>ART_AUTH_TOKEN</key>
         <string>YOUR_TOKEN_HERE</string>
     </dict>
     <key>RunAtLoad</key>
@@ -522,17 +522,17 @@ The assistant will use `server_info` on each server:
 ```
 Windows Server:
 - OS: Windows
-- Version: 1.1.0
+- Version: 1.2.0
 - Transport: streamable-http
 
 Linux Server:
 - OS: Linux
-- Version: 1.1.0
+- Version: 1.2.0
 - Transport: streamable-http
 
 macOS Server:
 - OS: Darwin
-- Version: 1.1.0
+- Version: 1.2.0
 - Transport: streamable-http
 ```
 
@@ -670,7 +670,7 @@ tail -f /tmp/atomic-mcp-error.log
 
 ### 3. SSH Tunneling (Recommended for Remote Access)
 
-Set `MCP_HOST=127.0.0.1` on all the machines(windows, linux, and macOS) and enable SSH tunneling to access the MCP servers.
+Set `ART_MCP_HOST=127.0.0.1` on all the machines(windows, linux, and macOS) and enable SSH tunneling to access the MCP servers.
 
 **Setup SSH tunnels from client to each server:**
 

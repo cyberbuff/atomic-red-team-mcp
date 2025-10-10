@@ -42,8 +42,8 @@ logging.getLogger("mcp.server.lowlevel.server").setLevel(logging.ERROR)
 logging.getLogger("mcp.server.streamable_http_manager").setLevel(logging.ERROR)
 logging.getLogger("sse_starlette.sse").setLevel(logging.ERROR)
 
-is_http = os.getenv("MCP_TRANSPORT", "stdio") == "streamable-http"
-is_execution_enabled = os.getenv("ENABLE_ATOMIC_EXECUTION", "false").lower() in [
+is_http = os.getenv("ART_MCP_TRANSPORT", "stdio") == "streamable-http"
+is_execution_enabled = os.getenv("ART_EXECUTION_ENABLED", "false").lower() in [
     "true",
     "1",
     "yes",
@@ -60,9 +60,9 @@ class AppContext:
 def download_atomics(force=False) -> None:
     """Download Atomic Red Team atomics from GitHub repository."""
 
-    repo_url = os.getenv("GITHUB_URL", "https://github.com")
-    repo_owner = os.getenv("GITHUB_USER", "redcanaryco")
-    repo_name = os.getenv("GITHUB_REPO", "atomic-red-team")
+    repo_url = os.getenv("ART_GITHUB_URL", "https://github.com")
+    repo_owner = os.getenv("ART_GITHUB_USER", "redcanaryco")
+    repo_name = os.getenv("ART_GITHUB_REPO", "atomic-red-team")
 
     if force:
         shutil.rmtree(atomics_dir, ignore_errors=True)
@@ -124,7 +124,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
         atomics = load_atomics()
 
         # Log execution tool status
-        execution_enabled = os.getenv("ENABLE_ATOMIC_EXECUTION", "false").lower() in [
+        execution_enabled = os.getenv("ART_EXECUTION_ENABLED", "false").lower() in [
             "true",
             "1",
             "yes",
@@ -135,7 +135,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
             )
         else:
             logger.info(
-                "Atomic test execution is disabled. Set ENABLE_ATOMIC_EXECUTION=true to enable."
+                "Atomic test execution is disabled. Set ART_EXECUTION_ENABLED=true to enable."
             )
 
         yield AppContext(atomics=atomics)
@@ -148,18 +148,18 @@ def configure_auth():
     """Configure authentication based on environment variables.
 
     Returns:
-        StaticTokenVerifier if MCP_AUTH_TOKEN is set, None otherwise.
+        StaticTokenVerifier if ART_AUTH_TOKEN is set, None otherwise.
     """
-    auth_token = os.getenv("MCP_AUTH_TOKEN")
+    auth_token = os.getenv("ART_AUTH_TOKEN")
 
     if not auth_token:
-        logger.info("No MCP_AUTH_TOKEN configured - authentication disabled")
+        logger.info("No ART_AUTH_TOKEN configured - authentication disabled")
         return None
 
     # Configure static token verifier with the token from environment
     # Extract optional client_id and scopes from environment
-    client_id = os.getenv("MCP_AUTH_CLIENT_ID", "dev-client")
-    scopes_str = os.getenv("MCP_AUTH_SCOPES", "read, admin")
+    client_id = os.getenv("ART_AUTH_CLIENT_ID", "dev-client")
+    scopes_str = os.getenv("ART_AUTH_SCOPES", "read, admin")
     scopes = [s.strip() for s in scopes_str.split(",") if s.strip()]
 
     verifier = StaticTokenVerifier(
@@ -227,6 +227,9 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
 2. Create the atomic test following the schema and best practices above
 3. Call `validate_atomic` tool with the generated YAML to ensure it's valid
 4. If validation fails, fix the issues and validate again until successful
+5. Use `server_info` to get the data directory path and create the atomic test in the correct directory.
+6. When creating a new atomic test, create them in the `<data_directory>/<technique_id>/<technique_id>.yaml` file.
+7. If you have any dependencies for the atomic test, create them in the `<data_directory>/<technique_id>/src` folder.
 """
 
 if is_http and is_execution_enabled:
@@ -244,8 +247,8 @@ mcp = FastMCP(
     "Atomic Red Team MCP",
     instructions=instructions,
     lifespan=app_lifespan,
-    host=os.getenv("MCP_HOST", "0.0.0.0"),
-    port=int(os.getenv("MCP_PORT", "8000")),
+    host=os.getenv("ART_MCP_HOST", "0.0.0.0"),
+    port=int(os.getenv("ART_MCP_PORT", "8000")),
     auth=auth,
 )
 
@@ -289,14 +292,15 @@ def server_info(ctx: Context) -> dict:
     return {
         "name": "Atomic Red Team MCP",
         "version": __version__,
-        "transport": os.getenv("MCP_TRANSPORT", "stdio"),
+        "transport": os.getenv("ART_MCP_TRANSPORT", "stdio"),
         "os": platform.system(),
+        "data_directory": atomics_dir,
     }
 
 
 @mcp.tool()
 async def refresh_atomics(ctx: Context):
-    """Refresh atomics. Download latest atomics from GitHub."""
+    """Refresh atomics. Refresh local changes and save it to memory."""
     try:
         download_atomics(force=True)
         # Reload atomics into memory
@@ -378,14 +382,9 @@ def query_atomics(
         matching_atomics = []
 
         for atomic in atomics:
-            # Search in atomic name and description
-            if (
-                query_lower in atomic.name.lower()
-                or query_lower in atomic.description.lower()
-                or (
-                    atomic.technique_name
-                    and query_lower in atomic.technique_name.lower()
-                )
+            if all(
+                query_word in str(atomic.model_dump()).lower()
+                for query_word in query_lower.split(" ")
             ):
                 matching_atomics.append(atomic)
 
@@ -444,15 +443,29 @@ def validate_atomic(yaml_string: str, ctx: Context) -> dict:
         if not atomic_data:
             return {"valid": False, "error": "YAML parsed to empty data"}
 
+        # Check for common mistakes before validation
+        validation_warnings = []
+        
+        if "auto_generated_guid" in atomic_data:
+            validation_warnings.append("WARNING: Remove 'auto_generated_guid' - system generates this automatically")
+        
+        if atomic_data.get("executor", {}).get("command"):
+            command = atomic_data["executor"]["command"]
+            if "echo" in command.lower() or "print" in command.lower():
+                validation_warnings.append("WARNING: Avoid echo/print statements in test commands")
+
         # Validate with Pydantic model
         try:
             atomic = Atomic(**atomic_data)
-            return {
+            result = {
                 "valid": True,
                 "message": "Atomic test validation successful",
                 "atomic_name": atomic.name,
                 "supported_platforms": atomic.supported_platforms,
             }
+            if validation_warnings:
+                result["warnings"] = validation_warnings
+            return result
         except Exception as validation_error:
             return {"valid": False, "error": f"Validation error: {validation_error}"}
 
@@ -475,6 +488,7 @@ async def execute_atomic(
 
     At least one parameter must be provided.
     """
+
     guid_to_find = None
     if not auto_generated_guid:
         result = await ctx.elicit(
@@ -489,7 +503,7 @@ async def execute_atomic(
     else:
         guid_to_find = auto_generated_guid
 
-    atomics: List[Atomic] = ctx.request_context.lifespan_context.atomics
+    atomics: List[Atomic] = load_atomics()
 
     matching_atomic = None
 
@@ -550,7 +564,7 @@ async def health_check(request):
 
 def main():
     """Main entry point for the CLI."""
-    transport = os.getenv("MCP_TRANSPORT", "stdio")
+    transport = os.getenv("ART_MCP_TRANSPORT", "stdio")
     mcp.run(transport=transport)
 
 

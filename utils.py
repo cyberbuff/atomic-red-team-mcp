@@ -14,10 +14,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 art = AtomicOperator()
-atomics_dir: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "atomics")
+atomics_dir: str = os.getenv(
+    "ART_DATA_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "atomics")
+)
 
 
-def run_test(guid: UUID, input_arguments: dict):
+def run_test(guid: UUID, input_arguments: dict, art_dir: str = atomics_dir):
     guid = str(guid)
     logger.info(f"Running test {guid} with input arguments {input_arguments}")
     # Monkey-patch the _set_input_arguments method to use our custom values
@@ -68,7 +70,7 @@ def run_test(guid: UUID, input_arguments: dict):
         art.run(
             get_prereqs=True,
             prompt_for_input_args=False,
-            atomics_path=atomics_dir,
+            atomics_path=art_dir,
             test_guids=[guid],
             debug=True,
         )
@@ -78,7 +80,7 @@ def run_test(guid: UUID, input_arguments: dict):
         logger.info(f"Running execution for test {guid}")
         art.run(
             prompt_for_input_args=False,
-            atomics_path=atomics_dir,
+            atomics_path=art_dir,
             test_guids=[guid],
             debug=True,
         )
@@ -89,7 +91,7 @@ def run_test(guid: UUID, input_arguments: dict):
         art.run(
             cleanup=True,
             prompt_for_input_args=False,
-            atomics_path=atomics_dir,
+            atomics_path=art_dir,
             test_guids=[guid],
             debug=True,
         )

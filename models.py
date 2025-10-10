@@ -258,6 +258,36 @@ class Atomic(BaseModel):
                 )
         return self
 
+    @model_validator(mode="after")
+    def validate_executor_platform_compatibility(self):
+        """Validate that executor types are compatible with supported platforms."""
+        if isinstance(self.executor, CommandExecutor):
+            # Check for incompatible Windows + Unix shell combinations
+            if "windows" in self.supported_platforms:
+                if self.executor.name in ["bash", "sh"]:
+                    raise PydanticCustomError(
+                        "incompatible_executor_for_windows",
+                        f"Executor '{self.executor.name}' is not compatible with Windows platform. Use 'powershell' or 'command_prompt' instead.",
+                        {
+                            "loc": ["executor", "name"],
+                            "input": self.executor.name,
+                        },
+                    )
+            
+            # Check for incompatible Unix + Windows shell combinations
+            unix_platforms = {"linux", "macos"}
+            if any(platform in self.supported_platforms for platform in unix_platforms):
+                if self.executor.name in ["powershell", "command_prompt"]:
+                    raise PydanticCustomError(
+                        "incompatible_executor_for_unix",
+                        f"Executor '{self.executor.name}' is not compatible with Linux/macOS platforms. Use 'bash' or 'sh' instead.",
+                        {
+                            "loc": ["executor", "name"],
+                            "input": self.executor.name,
+                        },
+                    )
+        return self
+
     @field_validator("input_arguments", mode="before")  # noqa
     @classmethod
     def validate(cls, v, info: ValidationInfo):
