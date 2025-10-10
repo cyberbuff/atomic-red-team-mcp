@@ -522,17 +522,17 @@ The assistant will use `server_info` on each server:
 ```
 Windows Server:
 - OS: Windows
-- Version: 1.2.0
+- Version: 1.2.1
 - Transport: streamable-http
 
 Linux Server:
 - OS: Linux
-- Version: 1.2.0
+- Version: 1.2.1
 - Transport: streamable-http
 
 macOS Server:
 - OS: Darwin
-- Version: 1.2.0
+- Version: 1.2.1
 - Transport: streamable-http
 ```
 
