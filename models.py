@@ -277,7 +277,7 @@ class Atomic(BaseModel):
             # Check for incompatible Unix + Windows shell combinations
             unix_platforms = {"linux", "macos"}
             if any(platform in self.supported_platforms for platform in unix_platforms):
-                if self.executor.name in ["powershell", "command_prompt"]:
+                if self.executor.name in ["command_prompt"]:
                     raise PydanticCustomError(
                         "incompatible_executor_for_unix",
                         f"Executor '{self.executor.name}' is not compatible with Linux/macOS platforms. Use 'bash' or 'sh' instead.",
