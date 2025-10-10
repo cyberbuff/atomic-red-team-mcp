@@ -445,14 +445,22 @@ def validate_atomic(yaml_string: str, ctx: Context) -> dict:
 
         # Check for common mistakes before validation
         validation_warnings = []
-        
+
         if "auto_generated_guid" in atomic_data:
-            validation_warnings.append("WARNING: Remove 'auto_generated_guid' - system generates this automatically")
-        
+            validation_warnings.append(
+                "WARNING: Remove 'auto_generated_guid' - system generates this automatically"
+            )
+
         if atomic_data.get("executor", {}).get("command"):
             command = atomic_data["executor"]["command"]
-            if "echo" in command.lower() or "print" in command.lower():
-                validation_warnings.append("WARNING: Avoid echo/print statements in test commands")
+            if (
+                "echo" in command.lower()
+                or "print" in command.lower()
+                or "write-host" in command.lower()
+            ):
+                validation_warnings.append(
+                    "WARNING: Avoid echo/print/Write-Host statements in test commands"
+                )
 
         # Validate with Pydantic model
         try:

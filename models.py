@@ -273,7 +273,7 @@ class Atomic(BaseModel):
                             "input": self.executor.name,
                         },
                     )
-            
+
             # Check for incompatible Unix + Windows shell combinations
             unix_platforms = {"linux", "macos"}
             if any(platform in self.supported_platforms for platform in unix_platforms):
