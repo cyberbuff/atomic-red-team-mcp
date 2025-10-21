@@ -30,12 +30,30 @@ Claude Desktop requires manual configuration file editing.
 
 ```json
 {
- "mcpServers": {
-  "atomic-red-team": {
-   "command": "uvx",
-   "args": ["atomic-red-team-mcp"]
-  }
- }
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "uvx",
+			"args": ["atomic-red-team-mcp"]
+		}
+	}
+}
+```
+
+**Using uvx with Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```json
+{
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "uvx",
+			"args": ["atomic-red-team-mcp"],
+			"env": {
+				"ART_EXECUTION_ENABLED": "true"
+			}
+		}
+	}
 }
 ```
 
@@ -43,22 +61,50 @@ Claude Desktop requires manual configuration file editing.
 
 ```json
 {
- "mcpServers": {
-  "atomic-red-team": {
-   "command": "docker",
-   "args": [
-    "run",
-    "--rm",
-    "-i",
-    "-e",
-    "ART_MCP_TRANSPORT",
-    "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-   ],
-   "env": {
-    "ART_MCP_TRANSPORT": "stdio"
-   }
-  }
- }
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "docker",
+			"args": [
+				"run",
+				"--rm",
+				"-i",
+				"-e",
+				"ART_MCP_TRANSPORT",
+				"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+			],
+			"env": {
+				"ART_MCP_TRANSPORT": "stdio"
+			}
+		}
+	}
+}
+```
+
+**Using Docker with Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```json
+{
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "docker",
+			"args": [
+				"run",
+				"--rm",
+				"-i",
+				"-e",
+				"ART_MCP_TRANSPORT",
+				"-e",
+				"ART_EXECUTION_ENABLED",
+				"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+			],
+			"env": {
+				"ART_MCP_TRANSPORT": "stdio",
+				"ART_EXECUTION_ENABLED": "true"
+			}
+		}
+	}
 }
 ```
 
@@ -68,11 +114,11 @@ Claude Desktop requires manual configuration file editing.
 
 ```json
 {
- "mcpServers": {
-  "atomic-red-team": {
-   "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-  }
- }
+	"mcpServers": {
+		"atomic-red-team": {
+			"url": "https://atomic-red-team-mcp.up.railway.app/mcp"
+		}
+	}
 }
 ```
 

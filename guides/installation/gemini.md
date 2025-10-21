@@ -46,12 +46,30 @@ This is the easiest and recommended method for most users.
 
 ```json
 {
- "mcpServers": {
-  "atomic-red-team": {
-   "command": "uvx",
-   "args": ["atomic-red-team-mcp"]
-  }
- }
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "uvx",
+			"args": ["atomic-red-team-mcp"]
+		}
+	}
+}
+```
+
+**With Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```json
+{
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "uvx",
+			"args": ["atomic-red-team-mcp"],
+			"env": {
+				"ART_EXECUTION_ENABLED": "true"
+			}
+		}
+	}
 }
 ```
 
@@ -73,17 +91,39 @@ docker pull ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 
 ```json
 {
- "mcpServers": {
-  "atomic-red-team": {
-   "command": "docker",
-   "args": [
-    "run",
-    "--rm",
-    "-i",
-    "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-   ]
-  }
- }
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "docker",
+			"args": [
+				"run",
+				"--rm",
+				"-i",
+				"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+			]
+		}
+	}
+}
+```
+
+**With Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```json
+{
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "docker",
+			"args": [
+				"run",
+				"--rm",
+				"-i",
+				"-e",
+				"ART_EXECUTION_ENABLED=true",
+				"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+			]
+		}
+	}
 }
 ```
 
@@ -97,11 +137,11 @@ docker pull ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 
 ```json
 {
- "mcpServers": {
-  "atomic-red-team": {
-   "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-  }
- }
+	"mcpServers": {
+		"atomic-red-team": {
+			"url": "https://atomic-red-team-mcp.up.railway.app/mcp"
+		}
+	}
 }
 ```
 

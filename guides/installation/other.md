@@ -26,12 +26,30 @@ Add to your Cline extension settings or `.cline_mcp_config.json`:
 
 ```json
 {
- "mcpServers": {
-  "atomic-red-team": {
-   "command": "uvx",
-   "args": ["atomic-red-team-mcp"]
-  }
- }
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "uvx",
+			"args": ["atomic-red-team-mcp"]
+		}
+	}
+}
+```
+
+**With Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```json
+{
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "uvx",
+			"args": ["atomic-red-team-mcp"],
+			"env": {
+				"ART_EXECUTION_ENABLED": "true"
+			}
+		}
+	}
 }
 ```
 
@@ -39,17 +57,39 @@ Add to your Cline extension settings or `.cline_mcp_config.json`:
 
 ```json
 {
- "mcpServers": {
-  "atomic-red-team": {
-   "command": "docker",
-   "args": [
-    "run",
-    "--rm",
-    "-i",
-    "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-   ]
-  }
- }
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "docker",
+			"args": [
+				"run",
+				"--rm",
+				"-i",
+				"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+			]
+		}
+	}
+}
+```
+
+**With Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```json
+{
+	"mcpServers": {
+		"atomic-red-team": {
+			"command": "docker",
+			"args": [
+				"run",
+				"--rm",
+				"-i",
+				"-e",
+				"ART_EXECUTION_ENABLED=true",
+				"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+			]
+		}
+	}
 }
 ```
 
@@ -59,11 +99,11 @@ Add to your Cline extension settings or `.cline_mcp_config.json`:
 
 ```json
 {
- "mcpServers": {
-  "atomic-red-team": {
-   "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-  }
- }
+	"mcpServers": {
+		"atomic-red-team": {
+			"url": "https://atomic-red-team-mcp.up.railway.app/mcp"
+		}
+	}
 }
 ```
 
@@ -84,16 +124,38 @@ Add to your Zed settings (`settings.json`):
 
 ```json
 {
- "experimental": {
-  "mcp": {
-   "servers": {
-    "atomic-red-team": {
-     "command": "uvx",
-     "args": ["atomic-red-team-mcp"]
-    }
-   }
-  }
- }
+	"experimental": {
+		"mcp": {
+			"servers": {
+				"atomic-red-team": {
+					"command": "uvx",
+					"args": ["atomic-red-team-mcp"]
+				}
+			}
+		}
+	}
+}
+```
+
+**With Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```json
+{
+	"experimental": {
+		"mcp": {
+			"servers": {
+				"atomic-red-team": {
+					"command": "uvx",
+					"args": ["atomic-red-team-mcp"],
+					"env": {
+						"ART_EXECUTION_ENABLED": "true"
+					}
+				}
+			}
+		}
+	}
 }
 ```
 
@@ -101,21 +163,47 @@ Add to your Zed settings (`settings.json`):
 
 ```json
 {
- "experimental": {
-  "mcp": {
-   "servers": {
-    "atomic-red-team": {
-     "command": "docker",
-     "args": [
-      "run",
-      "--rm",
-      "-i",
-      "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-     ]
-    }
-   }
-  }
- }
+	"experimental": {
+		"mcp": {
+			"servers": {
+				"atomic-red-team": {
+					"command": "docker",
+					"args": [
+						"run",
+						"--rm",
+						"-i",
+						"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+					]
+				}
+			}
+		}
+	}
+}
+```
+
+**With Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```json
+{
+	"experimental": {
+		"mcp": {
+			"servers": {
+				"atomic-red-team": {
+					"command": "docker",
+					"args": [
+						"run",
+						"--rm",
+						"-i",
+						"-e",
+						"ART_EXECUTION_ENABLED=true",
+						"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+					]
+				}
+			}
+		}
+	}
 }
 ```
 
@@ -125,15 +213,15 @@ Add to your Zed settings (`settings.json`):
 
 ```json
 {
- "experimental": {
-  "mcp": {
-   "servers": {
-    "atomic-red-team": {
-     "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-    }
-   }
-  }
- }
+	"experimental": {
+		"mcp": {
+			"servers": {
+				"atomic-red-team": {
+					"url": "https://atomic-red-team-mcp.up.railway.app/mcp"
+				}
+			}
+		}
+	}
 }
 ```
 
@@ -149,10 +237,26 @@ For any MCP client that supports stdio transport:
 uvx atomic-red-team-mcp
 ```
 
+**With Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```bash
+ART_EXECUTION_ENABLED=true uvx atomic-red-team-mcp
+```
+
 ### Using Docker
 
 ```bash
 docker run --rm -i ghcr.io/cyberbuff/atomic-red-team-mcp:latest
+```
+
+**With Execution Enabled:**
+
+To enable atomic test execution (⚠️ **Warning**: This allows the MCP server to execute security tests on your system):
+
+```bash
+docker run --rm -i -e ART_EXECUTION_ENABLED=true ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 ```
 
 ### ⚠️ Remote Server
