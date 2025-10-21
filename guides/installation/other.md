@@ -8,7 +8,7 @@ This guide covers installation for various other tools and clients that support 
 - [Zed Editor](#zed-editor)
 - [Generic MCP Client](#generic-mcp-client)
 
----
+______________________________________________________________________
 
 ## Cline (VS Code Extension)
 
@@ -26,12 +26,12 @@ Add to your Cline extension settings or `.cline_mcp_config.json`:
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "command": "uvx",
-      "args": ["atomic-red-team-mcp"]
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "uvx",
+   "args": ["atomic-red-team-mcp"]
   }
+ }
 }
 ```
 
@@ -39,15 +39,17 @@ Add to your Cline extension settings or `.cline_mcp_config.json`:
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "command": "docker",
-      "args": [
-        "run", "--rm", "-i",
-        "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-      ]
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "docker",
+   "args": [
+    "run",
+    "--rm",
+    "-i",
+    "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+   ]
   }
+ }
 }
 ```
 
@@ -57,15 +59,15 @@ Add to your Cline extension settings or `.cline_mcp_config.json`:
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
   }
+ }
 }
 ```
 
----
+______________________________________________________________________
 
 ## Zed Editor
 
@@ -82,16 +84,16 @@ Add to your Zed settings (`settings.json`):
 
 ```json
 {
-  "experimental": {
-    "mcp": {
-      "servers": {
-        "atomic-red-team": {
-          "command": "uvx",
-          "args": ["atomic-red-team-mcp"]
-        }
-      }
+ "experimental": {
+  "mcp": {
+   "servers": {
+    "atomic-red-team": {
+     "command": "uvx",
+     "args": ["atomic-red-team-mcp"]
     }
+   }
   }
+ }
 }
 ```
 
@@ -99,19 +101,21 @@ Add to your Zed settings (`settings.json`):
 
 ```json
 {
-  "experimental": {
-    "mcp": {
-      "servers": {
-        "atomic-red-team": {
-          "command": "docker",
-          "args": [
-            "run", "--rm", "-i",
-            "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-          ]
-        }
-      }
+ "experimental": {
+  "mcp": {
+   "servers": {
+    "atomic-red-team": {
+     "command": "docker",
+     "args": [
+      "run",
+      "--rm",
+      "-i",
+      "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+     ]
     }
+   }
   }
+ }
 }
 ```
 
@@ -121,19 +125,19 @@ Add to your Zed settings (`settings.json`):
 
 ```json
 {
-  "experimental": {
-    "mcp": {
-      "servers": {
-        "atomic-red-team": {
-          "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-        }
-      }
+ "experimental": {
+  "mcp": {
+   "servers": {
+    "atomic-red-team": {
+     "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
     }
+   }
   }
+ }
 }
 ```
 
----
+______________________________________________________________________
 
 ## Generic MCP Client
 

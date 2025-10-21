@@ -6,11 +6,11 @@ This guide will help you install and configure the Atomic Red Team MCP server fo
 
 - **Claude Desktop** application or **Claude Code** CLI installed
 - Either:
-    - [uv](https://docs.astral.sh/uv/) installed (recommended), or
-    - [Docker](https://www.docker.com/) installed, or
-    - Access to the remote server
+  - [uv](https://docs.astral.sh/uv/) installed (recommended), or
+  - [Docker](https://www.docker.com/) installed, or
+  - Access to the remote server
 
----
+______________________________________________________________________
 
 ## Claude Desktop Installation
 
@@ -19,22 +19,23 @@ Claude Desktop requires manual configuration file editing.
 ### Installation Steps
 
 1. **Locate your Claude Desktop configuration file:**
-    - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-    - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-    - **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-2. **Add the following configuration:**
+   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+   - **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+1. **Add the following configuration:**
 
 **Using uvx:**
 
 ```json
 {
-	"mcpServers": {
-		"atomic-red-team": {
-			"command": "uvx",
-			"args": ["atomic-red-team-mcp"]
-		}
-	}
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "uvx",
+   "args": ["atomic-red-team-mcp"]
+  }
+ }
 }
 ```
 
@@ -42,22 +43,22 @@ Claude Desktop requires manual configuration file editing.
 
 ```json
 {
-	"mcpServers": {
-		"atomic-red-team": {
-			"command": "docker",
-			"args": [
-				"run",
-				"--rm",
-				"-i",
-				"-e",
-				"ART_MCP_TRANSPORT",
-				"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-			],
-			"env": {
-				"ART_MCP_TRANSPORT": "stdio"
-			}
-		}
-	}
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "docker",
+   "args": [
+    "run",
+    "--rm",
+    "-i",
+    "-e",
+    "ART_MCP_TRANSPORT",
+    "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+   ],
+   "env": {
+    "ART_MCP_TRANSPORT": "stdio"
+   }
+  }
+ }
 }
 ```
 
@@ -67,17 +68,17 @@ Claude Desktop requires manual configuration file editing.
 
 ```json
 {
-	"mcpServers": {
-		"atomic-red-team": {
-			"url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-		}
-	}
+ "mcpServers": {
+  "atomic-red-team": {
+   "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
+  }
+ }
 }
 ```
 
 3. **Save the file and restart Claude Desktop**
 
----
+______________________________________________________________________
 
 ## Claude Code Installation
 

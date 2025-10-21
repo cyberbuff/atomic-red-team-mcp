@@ -17,22 +17,23 @@ This guide will help you install and configure the Atomic Red Team MCP server fo
 This is the easiest and recommended method for most users.
 
 1. **Open VS Code Settings:**
+
    - Press `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Windows/Linux)
    - Type "Preferences: Open User Settings (JSON)"
    - Or directly edit your MCP config file at:
      - macOS/Linux: `~/.vscode/mcp.json`
      - Windows: `%APPDATA%\Code\User\mcp.json`
 
-2. **Add the following configuration:**
+1. **Add the following configuration:**
 
 ```json
 {
-	"servers": {
-		"atomic-red-team-mcp": {
-			"command": "uvx",
-			"args": ["atomic-red-team-mcp"]
-		}
-	}
+ "servers": {
+  "atomic-red-team-mcp": {
+   "command": "uvx",
+   "args": ["atomic-red-team-mcp"]
+  }
+ }
 }
 ```
 
@@ -54,15 +55,17 @@ docker pull ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 
 ```json
 {
-	"servers": {
-		"atomic-red-team-mcp": {
-			"command": "docker",
-			"args": [
-				"run", "--rm", "-i",
-				"ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-			]
-		}
-	}
+ "servers": {
+  "atomic-red-team-mcp": {
+   "command": "docker",
+   "args": [
+    "run",
+    "--rm",
+    "-i",
+    "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+   ]
+  }
+ }
 }
 ```
 
@@ -76,11 +79,11 @@ docker pull ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 
 ```json
 {
-	"servers": {
-		"atomic-red-team-mcp": {
-			"url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-		}
-	}
+ "servers": {
+  "atomic-red-team-mcp": {
+   "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
+  }
+ }
 }
 ```
 

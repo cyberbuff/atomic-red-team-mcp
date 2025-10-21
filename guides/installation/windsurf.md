@@ -12,21 +12,20 @@ This guide will help you install and configure the Atomic Red Team MCP server fo
 
 ## Installation
 
-1.  **Open Windsurf Settings** by pressing `Cmd+,` (macOS) or `Ctrl+,` (Windows/Linux), or by directly editing your MCP configuration file.
-2.  **Add the server configuration** using one of the options below.
-3.  **Restart Windsurf** to apply the changes.
+1. **Open Windsurf Settings** by pressing `Cmd+,` (macOS) or `Ctrl+,` (Windows/Linux), or by directly editing your MCP configuration file.
+1. **Add the server configuration** using one of the options below.
+1. **Restart Windsurf** to apply the changes.
 
 ### Option 1: Using uvx (Recommended)
 
-
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "command": "uvx",
-      "args": ["atomic-red-team-mcp"]
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "uvx",
+   "args": ["atomic-red-team-mcp"]
   }
+ }
 }
 ```
 
@@ -42,15 +41,17 @@ Then, add this configuration:
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "command": "docker",
-      "args": [
-        "run", "--rm", "-i",
-        "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-      ]
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "docker",
+   "args": [
+    "run",
+    "--rm",
+    "-i",
+    "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+   ]
   }
+ }
 }
 ```
 
@@ -60,10 +61,10 @@ Then, add this configuration:
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
   }
+ }
 }
 ```

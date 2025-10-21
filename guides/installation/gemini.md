@@ -38,19 +38,20 @@ Follow the on-screen instructions to sign in with your Google account.
 This is the easiest and recommended method for most users.
 
 1. **Locate your Gemini CLI configuration file:**
+
    - **Global configuration**: `~/.gemini/settings.json` (where `~` is your home directory)
    - **Project-specific**: `.gemini/settings.json` in your project directory
 
-2. **Add the following configuration:**
+1. **Add the following configuration:**
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "command": "uvx",
-      "args": ["atomic-red-team-mcp"]
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "uvx",
+   "args": ["atomic-red-team-mcp"]
   }
+ }
 }
 ```
 
@@ -72,15 +73,17 @@ docker pull ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "command": "docker",
-      "args": [
-        "run", "--rm", "-i",
-        "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-      ]
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "docker",
+   "args": [
+    "run",
+    "--rm",
+    "-i",
+    "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+   ]
   }
+ }
 }
 ```
 
@@ -94,11 +97,11 @@ docker pull ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
   }
+ }
 }
 ```
 

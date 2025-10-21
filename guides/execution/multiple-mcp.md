@@ -5,6 +5,7 @@ This guide explains how to run multiple Atomic Red Team MCP servers across Windo
 ## Overview
 
 By running MCP servers on multiple machines, you can:
+
 - Execute platform-specific atomic tests remotely
 - Test security controls across different operating systems
 - Simulate multi-platform attack scenarios
@@ -29,42 +30,46 @@ By running MCP servers on multiple machines, you can:
 └────────┘      └────────┘   └────────┘
 ```
 
----
+______________________________________________________________________
 
 ## Part 1: Setting Up MCP Servers on Each Platform
 
 ### Prerequisites
 
 For each target machine, you'll need:
+
 - Python 3.10+ or `uv` installed
 - Network connectivity (default port 8000, or custom port)
 - Appropriate security permissions for executing atomic tests
 - Firewall rules allowing inbound connections on your chosen port
 
----
+______________________________________________________________________
 
 ## Installing uv on Each Platform
 
 `uv` is a fast Python package installer and runner. Install it on each machine:
 
 ### Windows (PowerShell)
+
 ```powershell
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 ### Linux/macOS
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 After installation, verify:
+
 ```bash
 uv --version
 uv python install 3.12
 uv python pin 3.12
 ```
 
----
+______________________________________________________________________
 
 ## Part 2: Running MCP HTTP Servers
 
@@ -128,6 +133,7 @@ Register-ScheduledTask -Action $action -Trigger $trigger -TaskName "AtomicMCPSer
 ```
 
 **Verify Windows Server is Running:**
+
 ```powershell
 # Check if port is listening
 netstat -an | findstr :8000
@@ -136,7 +142,7 @@ netstat -an | findstr :8000
 Invoke-WebRequest -Uri http://localhost:8000/health
 ```
 
----
+______________________________________________________________________
 
 ### Linux Server Setup (Terminal)
 
@@ -211,6 +217,7 @@ sudo journalctl -u atomic-mcp.service -f
 ```
 
 **Verify Linux Server is Running:**
+
 ```bash
 # Check if port is listening
 ss -tulpn | grep :8000
@@ -221,7 +228,7 @@ netstat -tulpn | grep :8000
 curl http://localhost:8000/health
 ```
 
----
+______________________________________________________________________
 
 ### macOS Server Setup (Terminal)
 
@@ -311,8 +318,8 @@ tail -f /tmp/atomic-mcp.log
 # launchctl unload ~/Library/LaunchAgents/com.atomic-red-team.mcp.plist
 ```
 
-
 **Verify macOS Server is Running:**
+
 ```bash
 # Check if port is listening
 lsof -i :8000
@@ -323,18 +330,19 @@ netstat -an | grep 8000
 curl http://localhost:8000/health
 ```
 
----
+______________________________________________________________________
 
 ## Part 3: Finding Server IP Addresses
 
 Before configuring your client, get the IP addresses of each server.
 
 Example:
+
 - Windows server: `192.168.1.10`
 - Linux server: `192.168.1.11`
 - macOS server: `192.168.1.12`
 
----
+______________________________________________________________________
 
 ## Part 4: Configuring Firewall Rules
 
@@ -397,7 +405,7 @@ echo "pass in proto tcp from 192.168.1.0/24 to any port 8000" | sudo tee -a /etc
 sudo pfctl -f /etc/pf.conf  # Reload rules
 ```
 
----
+______________________________________________________________________
 
 ## Part 5: Client Configuration
 
@@ -406,6 +414,7 @@ Configure your MCP client to connect to all three servers.
 ### Example Server Details
 
 Save your authentication tokens:
+
 - **Windows Server:** `192.168.1.10:8000`
 - **Linux Server:** `192.168.1.11:8000`
 - **macOS Server:** `192.168.1.12:8000`
@@ -415,51 +424,53 @@ Save your authentication tokens:
 Edit `~/.cursor/mcp.json` (macOS/Linux) or `%USERPROFILE%\.cursor\mcp.json` (Windows):
 
 **With Authentication (Recommended):**
+
 ```json
 {
-  "mcpServers": {
-    "atomic-windows": {
-      "url": "http://192.168.1.10:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer abc123...789xyz"
-      }
-    },
-    "atomic-linux": {
-      "url": "http://192.168.1.11:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer abc123...789xyz"
-      }
-    },
-    "atomic-macos": {
-      "url": "http://192.168.1.12:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer abc123...789xyz"
-      }
-    }
-  }
+	"mcpServers": {
+		"atomic-windows": {
+			"url": "http://192.168.1.10:8000/mcp",
+			"headers": {
+				"Authorization": "Bearer abc123...789xyz"
+			}
+		},
+		"atomic-linux": {
+			"url": "http://192.168.1.11:8000/mcp",
+			"headers": {
+				"Authorization": "Bearer abc123...789xyz"
+			}
+		},
+		"atomic-macos": {
+			"url": "http://192.168.1.12:8000/mcp",
+			"headers": {
+				"Authorization": "Bearer abc123...789xyz"
+			}
+		}
+	}
 }
 ```
 
 **Without Authentication:**
+
 ```json
 {
-  "mcpServers": {
-    "atomic-windows": {
-      "url": "http://192.168.1.10:8000/mcp"
-    },
-    "atomic-linux": {
-      "url": "http://192.168.1.11:8000/mcp"
-    },
-    "atomic-macos": {
-      "url": "http://192.168.1.12:8000/mcp"
-    }
-  }
+	"mcpServers": {
+		"atomic-windows": {
+			"url": "http://192.168.1.10:8000/mcp"
+		},
+		"atomic-linux": {
+			"url": "http://192.168.1.11:8000/mcp"
+		},
+		"atomic-macos": {
+			"url": "http://192.168.1.12:8000/mcp"
+		}
+	}
 }
 ```
 
 **Restart Cursor** to apply the configuration.
 
----
+______________________________________________________________________
 
 ### Claude Desktop Configuration
 
@@ -469,38 +480,38 @@ Edit `~/.cursor/mcp.json` (macOS/Linux) or `%USERPROFILE%\.cursor\mcp.json` (Win
 
 ```json
 {
-  "mcpServers": {
-    "atomic-windows": {
-      "url": "http://192.168.1.10:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer abc123...windows"
-      }
-    },
-    "atomic-linux": {
-      "url": "http://192.168.1.11:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer def456...linux"
-      }
-    },
-    "atomic-macos": {
-      "url": "http://192.168.1.12:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer ghi789...macos"
-      }
-    }
-  }
+	"mcpServers": {
+		"atomic-windows": {
+			"url": "http://192.168.1.10:8000/mcp",
+			"headers": {
+				"Authorization": "Bearer abc123...windows"
+			}
+		},
+		"atomic-linux": {
+			"url": "http://192.168.1.11:8000/mcp",
+			"headers": {
+				"Authorization": "Bearer def456...linux"
+			}
+		},
+		"atomic-macos": {
+			"url": "http://192.168.1.12:8000/mcp",
+			"headers": {
+				"Authorization": "Bearer ghi789...macos"
+			}
+		}
+	}
 }
 ```
 
 **Restart Claude Desktop** to apply the configuration.
 
----
+______________________________________________________________________
 
 ### Windsurf Configuration
 
 Similar to Cursor, edit your Windsurf MCP settings file with the same JSON structure.
 
----
+______________________________________________________________________
 
 ## Part 6: Executing Atomic Tests Across All Platforms
 
@@ -509,16 +520,19 @@ Now you can interact with all three servers from your client!
 ### Step 1: Verify Server Connections
 
 In your AI assistant interface, ask:
+
 ```
 Check the server information for all three Atomic Red Team MCP servers
 ```
 
 The assistant will use `server_info` on each server:
+
 - `atomic-windows:server_info()`
 - `atomic-linux:server_info()`
 - `atomic-macos:server_info()`
 
 **Expected Response:**
+
 ```
 Windows Server:
 - OS: Windows
@@ -536,31 +550,35 @@ macOS Server:
 - Transport: streamable-http
 ```
 
----
+______________________________________________________________________
 
 ### Step 2: Search for Platform-Specific Atomics
 
 **Example 1: Find Windows Registry Persistence Tests**
+
 ```
 Search for registry persistence atomics on the `atomic-windows` MCP server
 ```
 
 The assistant will execute:
+
 ```
 atomic-windows:query_atomics(query="registry persistence", supported_platforms="windows")
 ```
 
 **Example 2: Find Linux Cron Job Persistence Tests**
+
 ```
 Search for cron persistence atomics on the `atomic-linux` server
 ```
 
 **Example 3: Find macOS LaunchAgent Tests**
+
 ```
 Search for LaunchAgent atomics on the `atomic-macos` server
 ```
 
----
+______________________________________________________________________
 
 ### Step 3: Execute Atomic Tests on Specific Platforms
 
@@ -571,11 +589,12 @@ Execute the atomic test for Registry Run Keys on the `atomic-windows` server
 ```
 
 **Workflow:**
+
 1. Assistant queries for T1547.001 on Windows server
-2. You select the specific atomic test
-3. Assistant prompts for input arguments (if any)
-4. Test executes on Windows server
-5. Results are returned
+1. You select the specific atomic test
+1. Assistant prompts for input arguments (if any)
+1. Test executes on Windows server
+1. Results are returned
 
 **Example: Cross-Platform Command Execution Test**
 
@@ -584,19 +603,20 @@ Run the atomic test c141bbdb-7fca-4254-9fd6-f47e79447e17 using `atomic-linux` an
 ```
 
 The assistant will:
+
 1. Query `atomic-linux` for c141bbdb-7fca-4254-9fd6-f47e79447e17 tests
-2. Query `atomic-macos` for c141bbdb-7fca-4254-9fd6-f47e79447e17 tests
-3. Execute selected tests on each platform
-4. Provide consolidated results
+1. Query `atomic-macos` for c141bbdb-7fca-4254-9fd6-f47e79447e17 tests
+1. Execute selected tests on each platform
+1. Provide consolidated results
 
----
-
+______________________________________________________________________
 
 ## Part 7: Troubleshooting
 
 ### Server Not Responding
 
 **Check if server is running:**
+
 ```bash
 # Windows
 netstat -an | findstr :8000
@@ -608,6 +628,7 @@ ss -tulpn | grep 8000
 ```
 
 **Check firewall:**
+
 ```bash
 # Windows
 Get-NetFirewallRule -DisplayName "Atomic MCP Server"
@@ -620,6 +641,7 @@ sudo firewall-cmd --list-all
 ```
 
 **Test local connection:**
+
 ```bash
 curl http://localhost:8000/health
 ```
@@ -627,6 +649,7 @@ curl http://localhost:8000/health
 ### Network Connectivity Issues
 
 **Test from client machine:**
+
 ```bash
 # Test connectivity
 ping 192.168.1.10
@@ -644,26 +667,30 @@ curl -v http://192.168.1.10:8000/health
 **View logs to diagnose issues:**
 
 **Linux (systemd):**
+
 ```bash
 sudo journalctl -u atomic-mcp.service -f
 ```
 
 **macOS (LaunchDaemon):**
+
 ```bash
 tail -f /tmp/atomic-mcp.log
 tail -f /tmp/atomic-mcp-error.log
 ```
 
----
+______________________________________________________________________
 
 ## Part 8: Security Best Practices
 
 ### 1. Always Use Authentication
+
 - Generate strong, random tokens (32+ characters)
 - Use different tokens for each server
 - Store tokens securely (password manager, secrets vault)
 
 ### 2. Network Isolation
+
 - Use VPN or private network for server communication
 - Restrict firewall rules to specific IP ranges
 - Consider using SSH tunnels for additional security
@@ -686,46 +713,50 @@ ssh -L 8003:localhost:8000 user@192.168.1.12
 ```
 
 **Then configure client to use localhost:**
+
 ```json
 {
-  "mcpServers": {
-    "atomic-windows": {
-      "url": "http://localhost:8001/mcp",
-      "headers": {
-        "Authorization": "Bearer abc123...windows"
-      }
-    },
-    "atomic-linux": {
-      "url": "http://localhost:8002/mcp",
-      "headers": {
-        "Authorization": "Bearer def456...linux"
-      }
-    },
-    "atomic-macos": {
-      "url": "http://localhost:8003/mcp",
-      "headers": {
-        "Authorization": "Bearer ghi789...macos"
-      }
-    }
-  }
+	"mcpServers": {
+		"atomic-windows": {
+			"url": "http://localhost:8001/mcp",
+			"headers": {
+				"Authorization": "Bearer abc123...windows"
+			}
+		},
+		"atomic-linux": {
+			"url": "http://localhost:8002/mcp",
+			"headers": {
+				"Authorization": "Bearer def456...linux"
+			}
+		},
+		"atomic-macos": {
+			"url": "http://localhost:8003/mcp",
+			"headers": {
+				"Authorization": "Bearer ghi789...macos"
+			}
+		}
+	}
 }
 ```
 
 ### 4. Run in Isolated Environments
+
 - Use VMs or sandboxes for test execution
 - Don't run on production systems
 - Create snapshots before testing
 
 ### 5. Monitor and Audit
+
 - Review server logs regularly
 - Monitor for unauthorized access attempts
 - Track which tests are executed
 
----
+______________________________________________________________________
 
 ## Part 9: Stopping/Restarting Servers
 
 ### Windows
+
 ```powershell
 # If running in foreground, press Ctrl+C
 
@@ -738,6 +769,7 @@ Unregister-ScheduledTask -TaskName "AtomicMCPServer" -Confirm:$false
 ```
 
 ### Linux
+
 ```bash
 # If running as systemd service
 sudo systemctl stop atomic-mcp.service
@@ -749,6 +781,7 @@ sudo lsof -ti:8000 | xargs kill -9
 ```
 
 ### macOS
+
 ```bash
 # If running as LaunchDaemon
 launchctl unload ~/Library/LaunchAgents/com.atomic-red-team.mcp.plist
@@ -758,13 +791,14 @@ launchctl load ~/Library/LaunchAgents/com.atomic-red-team.mcp.plist
 sudo lsof -ti:8000 | xargs kill -9
 ```
 
----
+______________________________________________________________________
 
 ## Summary
 
 You now have:
+
 1. ✅ MCP servers running on Windows, Linux, and macOS
-2. ✅ HTTP-based communication between client and servers
-3. ✅ Authentication configured for security
-4. ✅ Ability to execute atomic tests across all platforms
-5. ✅ Centralized management from your AI assistant
+1. ✅ HTTP-based communication between client and servers
+1. ✅ Authentication configured for security
+1. ✅ Ability to execute atomic tests across all platforms
+1. ✅ Centralized management from your AI assistant

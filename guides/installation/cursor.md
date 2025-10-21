@@ -17,20 +17,21 @@ This guide will help you install and configure the Atomic Red Team MCP server fo
 This is the easiest and recommended method for most users.
 
 1. **Open Cursor Settings:**
+
    - Press `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Windows/Linux)
    - Type "Preferences: Open User Settings (JSON)"
    - Or directly edit your MCP config file at `~/.cursor/mcp.json`
 
-2. **Add the following configuration:**
+1. **Add the following configuration:**
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "command": "uvx",
-      "args": ["atomic-red-team-mcp"]
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "uvx",
+   "args": ["atomic-red-team-mcp"]
   }
+ }
 }
 ```
 
@@ -52,15 +53,17 @@ docker pull ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "command": "docker",
-      "args": [
-        "run", "--rm", "-i",
-        "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
-      ]
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "command": "docker",
+   "args": [
+    "run",
+    "--rm",
+    "-i",
+    "ghcr.io/cyberbuff/atomic-red-team-mcp:latest"
+   ]
   }
+ }
 }
 ```
 
@@ -74,11 +77,11 @@ docker pull ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 
 ```json
 {
-  "mcpServers": {
-    "atomic-red-team": {
-      "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
-    }
+ "mcpServers": {
+  "atomic-red-team": {
+   "url": "https://atomic-red-team-mcp.up.railway.app/mcp"
   }
+ }
 }
 ```
 
