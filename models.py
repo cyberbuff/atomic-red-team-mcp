@@ -218,29 +218,16 @@ class Atomic(BaseModel):
             commands.extend([d.get_prereq_command, d.prereq_command])
         return extract_mustached_keys(commands)
 
-    @model_validator(mode="before")  # noqa
+    @field_validator("dependency_executor_name", mode="before")  # noqa
     @classmethod
-    def validate_dep_executor(cls, data):
-        if not isinstance(data, dict):
-            return data
-
-        dependencies = data.get("dependencies")
-        dep_executor = data.get("dependency_executor_name")
-        field_exists = "dependency_executor_name" in data
-
-        # If dependency_executor_name is provided but no dependencies exist
-        if (
-            field_exists
-            and dep_executor
-            and (dependencies is None or len(dependencies) == 0)
-        ):
+    def validate_dep_executor(cls, v, info: ValidationInfo):
+        if info.data.get("dependencies") is None:
             raise PydanticCustomError(
                 "empty_dependencies",
                 "'dependency_executor_name' is provided but there are no dependencies. This field can be removed if there are no dependencies.",
-                {"loc": ["dependency_executor_name"], "input": dep_executor},
+                {"loc": ["dependency_executor_name"], "input": None},
             )
-
-        return data
+        return v
 
     @model_validator(mode="after")
     def validate_elevation_required(self):
