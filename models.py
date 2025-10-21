@@ -197,8 +197,8 @@ class Atomic(BaseModel):
         default={},
         description="Parameterized inputs for flexibility and reusability. Use these instead of hardcoded values in commands. If there are no input arguments, remove this section entirely.",
     )
-    dependency_executor_name: ExecutorType = Field(
-        default="manual",
+    dependency_executor_name: ExecutorType | None = Field(
+        default=None,
         description="Executor type for dependency commands. Remove this section if there are no dependencies.",
     )
     auto_generated_guid: Optional[UUID] = Field(
@@ -218,23 +218,29 @@ class Atomic(BaseModel):
             commands.extend([d.get_prereq_command, d.prereq_command])
         return extract_mustached_keys(commands)
 
-    @field_validator("dependency_executor_name", mode="before")  # noqa
+    @model_validator(mode="before")  # noqa
     @classmethod
-    def validate_dep_executor(cls, v, info: ValidationInfo):
-        if v is None:
-            raise PydanticCustomError(
-                "empty_dependency_executor_name",
-                "'dependency_executor_name' shouldn't be empty. Provide a valid value ['manual','powershell', 'sh', "
-                "'bash', 'command_prompt'] or remove the key from YAML",
-                {"loc": ["dependency_executor_name"], "input": None},
-            )
-        if info.data.get("dependencies") is None:
+    def validate_dep_executor(cls, data):
+        if not isinstance(data, dict):
+            return data
+
+        dependencies = data.get("dependencies")
+        dep_executor = data.get("dependency_executor_name")
+        field_exists = "dependency_executor_name" in data
+
+        # If dependency_executor_name is provided but no dependencies exist
+        if (
+            field_exists
+            and dep_executor
+            and (dependencies is None or len(dependencies) == 0)
+        ):
             raise PydanticCustomError(
                 "empty_dependencies",
                 "'dependency_executor_name' is provided but there are no dependencies. This field can be removed if there are no dependencies.",
-                {"loc": ["dependency_executor_name"], "input": None},
+                {"loc": ["dependency_executor_name"], "input": dep_executor},
             )
-        return v
+
+        return data
 
     @model_validator(mode="after")
     def validate_elevation_required(self):
