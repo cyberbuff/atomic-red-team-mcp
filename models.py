@@ -197,8 +197,8 @@ class Atomic(BaseModel):
         default={},
         description="Parameterized inputs for flexibility and reusability. Use these instead of hardcoded values in commands. If there are no input arguments, remove this section entirely.",
     )
-    dependency_executor_name: ExecutorType = Field(
-        default="manual",
+    dependency_executor_name: ExecutorType | None = Field(
+        default=None,
         description="Executor type for dependency commands. Remove this section if there are no dependencies.",
     )
     auto_generated_guid: Optional[UUID] = Field(
@@ -221,13 +221,6 @@ class Atomic(BaseModel):
     @field_validator("dependency_executor_name", mode="before")  # noqa
     @classmethod
     def validate_dep_executor(cls, v, info: ValidationInfo):
-        if v is None:
-            raise PydanticCustomError(
-                "empty_dependency_executor_name",
-                "'dependency_executor_name' shouldn't be empty. Provide a valid value ['manual','powershell', 'sh', "
-                "'bash', 'command_prompt'] or remove the key from YAML",
-                {"loc": ["dependency_executor_name"], "input": None},
-            )
         if info.data.get("dependencies") is None:
             raise PydanticCustomError(
                 "empty_dependencies",
