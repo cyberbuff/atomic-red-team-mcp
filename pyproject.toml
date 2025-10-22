@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atomic-red-team-mcp"
-version = "1.2.3"
+version = "1.2.4"
 description = "MCP server providing access to Atomic Red Team security tests with search, validation, and creation capabilities"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -63,7 +63,7 @@ include = [
 ]
 
 [tool.bumpversion]
-current_version = "1.2.3"
+current_version = "1.2.4"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
