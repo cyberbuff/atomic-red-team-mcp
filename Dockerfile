@@ -33,4 +33,4 @@ COPY --chown=appuser:appuser . .
 EXPOSE 8000
 
 # Run the server using the installed CLI command
-CMD ["uv", "run", "python", "-m", "main"]
+CMD ["uv", "run", "python", "-m", "atomic_red_team_mcp"]

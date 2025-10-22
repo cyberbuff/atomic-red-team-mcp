@@ -43,12 +43,12 @@ docker run --rm -i ghcr.io/cyberbuff/atomic-red-team-mcp:latest
 
 ### Platform-Specific Guides
 
-- **[VSCode](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/code.md)** - Installation guide for VSCode
-- **[Claude Desktop & Claude Code](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/claude.md)** - Installation guide for Anthropic's Claude Desktop app and Claude Code CLI
-- **[Cursor](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/cursor.md)** - Installation guide for Cursor IDE
-- **[Windsurf](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/windsurf.md)** - Installation guide for Windsurf editor
-- **[Google AI Studio / Gemini](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/gemini.md)** - Installation guide for Google's AI tools
-- **[Other Tools](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/guides/other.md)** - Cline, Zed, and generic MCP clients
+- **[VSCode](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/docs/installation/code.md)** - Installation guide for VSCode
+- **[Claude Desktop & Claude Code](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/docs/installation/claude.md)** - Installation guide for Anthropic's Claude Desktop app and Claude Code CLI
+- **[Cursor](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/docs/installation/cursor.md)** - Installation guide for Cursor IDE
+- **[Windsurf](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/docs/installation/windsurf.md)** - Installation guide for Windsurf editor
+- **[Google AI Studio / Gemini](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/docs/installation/gemini.md)** - Installation guide for Google's AI tools
+- **[Other Tools](https://github.com/cyberbuff/atomic-red-team-mcp/blob/main/docs/installation/other.md)** - Cline, Zed, and generic MCP clients
 
 ### Installation Methods
 

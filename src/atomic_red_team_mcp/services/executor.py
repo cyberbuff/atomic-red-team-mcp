@@ -1,27 +1,28 @@
+"""Service for executing Atomic Red Team tests."""
+
 import json
 import logging
-import os
 from uuid import UUID
 
 from atomic_operator import AtomicOperator
 from atomic_operator.base import Base
 from atomic_operator.execution.runner import Runner
 
-# Configure logging to stderr to avoid interfering with MCP JSON protocol
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from atomic_red_team_mcp.utils.config import get_atomics_dir
+
 logger = logging.getLogger(__name__)
 
-art = AtomicOperator()
-atomics_dir: str = os.getenv(
-    "ART_DATA_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "atomics")
-)
 
+def run_test(guid: UUID, input_arguments: dict, art_dir: str = None):
+    """Execute an atomic test by GUID with the specified input arguments."""
+    if art_dir is None:
+        art_dir = get_atomics_dir()
 
-def run_test(guid: UUID, input_arguments: dict, art_dir: str = atomics_dir):
     guid = str(guid)
     logger.info(f"Running test {guid} with input arguments {input_arguments}")
+
+    art = AtomicOperator()
+
     # Monkey-patch the _set_input_arguments method to use our custom values
     # This workaround is needed because atomic_operator's __check_arguments validation
     # incorrectly rejects kwargs that should be passed to tests

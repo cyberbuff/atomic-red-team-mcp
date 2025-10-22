@@ -109,7 +109,7 @@ jobs:
         uvx ${{ env.PACKAGE_NAME }}@$VERSION --help || echo "CLI help command completed"
 
         # Test that the package can be imported
-        uv run --with ${{ env.PACKAGE_NAME }}==$VERSION python -c "import main; print('✅ Package imported successfully')"
+        uv run --with ${{ env.PACKAGE_NAME }}==$VERSION python -c "import atomic_red_team_mcp; print('✅ Package imported successfully')"
 
   build:
     needs: test-pypi-install
