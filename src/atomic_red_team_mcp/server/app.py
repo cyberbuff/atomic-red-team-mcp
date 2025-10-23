@@ -1,7 +1,6 @@
 """Main MCP server application."""
 
 import logging
-import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -22,7 +21,7 @@ from atomic_red_team_mcp.tools import (
     server_info,
     validate_atomic,
 )
-from atomic_red_team_mcp.utils.config import get_atomics_dir
+from atomic_red_team_mcp.utils.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,18 +36,15 @@ class AppContext:
 @asynccontextmanager
 async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     """Manage application lifecycle with type-safe context."""
+    settings = get_settings()
+
     # Download atomics on startup
     try:
         download_atomics()
         atomics = load_atomics()
 
         # Log execution tool status
-        execution_enabled = os.getenv("ART_EXECUTION_ENABLED", "false").lower() in [
-            "true",
-            "1",
-            "yes",
-        ]
-        if execution_enabled:
+        if settings.execution_enabled:
             logger.warning(
                 "⚠️  Atomic test execution is ENABLED - tests can be executed on this system"
             )
@@ -64,12 +60,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
 
 def create_mcp_server() -> FastMCP:
     """Create and configure the MCP server."""
-    is_http = os.getenv("ART_MCP_TRANSPORT", "stdio") == "streamable-http"
-    is_execution_enabled = os.getenv("ART_EXECUTION_ENABLED", "false").lower() in [
-        "true",
-        "1",
-        "yes",
-    ]
+    settings = get_settings()
 
     # Configure authentication
     auth = configure_auth()
@@ -85,7 +76,7 @@ AVAILABLE TOOLS:
 - `server_info`: Get server information including version, transport, and OS platform
 """
 
-    if is_execution_enabled:
+    if settings.execution_enabled:
         instructions += """
 - `execute_atomic`: Execute an atomic test by GUID (requires ENABLE_ATOMIC_EXECUTION=true)
 """
@@ -126,13 +117,18 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
 1. Call `get_validation_schema` to understand the atomic test structure
 2. Create the atomic test following the schema and best practices above
 3. Call `validate_atomic` tool with the generated YAML to ensure it's valid
-4. If validation fails, fix the issues and validate again until successful
+4. **IMPORTANT**: Check the validation result carefully:
+   - If validation fails (valid=false), fix the errors and validate again
+   - If validation succeeds but has warnings (warnings field present), **ALWAYS address the warnings**
+   - Warnings are displayed with ⚠️  emoji in the message field - show these to the user
+   - Common warnings: auto_generated_guid present, echo/print commands used
+   - Re-validate after fixing warnings to ensure clean validation
 5. Use `server_info` to get the data directory path and create the atomic test in the correct directory.
 6. When creating a new atomic test, create them in the `<data_directory>/<technique_id>/<technique_id>.yaml` file.
 7. If you have any dependencies for the atomic test, create them in the `<data_directory>/<technique_id>/src` folder.
 """
 
-    if is_http and is_execution_enabled:
+    if settings.is_http_transport and settings.execution_enabled:
         instructions += """
 🚀 ATOMIC TEST EXECUTION:
 - This is a remote MCP server with atomic test execution enabled
@@ -147,8 +143,8 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
         "Atomic Red Team MCP",
         instructions=instructions,
         lifespan=app_lifespan,
-        host=os.getenv("ART_MCP_HOST", "0.0.0.0"),
-        port=int(os.getenv("ART_MCP_PORT", "8000")),
+        host=settings.mcp_host,
+        port=settings.mcp_port,
         auth=auth,
     )
 
@@ -156,8 +152,7 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
     @mcp.resource("file://documents/{technique_id}")
     def read_document(technique_id: str, ctx: Context) -> str:
         """Read a atomic test file by technique ID."""
-        atomics_dir = get_atomics_dir()
-        return read_atomic_document(technique_id, atomics_dir)
+        return read_atomic_document(technique_id, settings.get_atomics_dir())
 
     # Register tools
     mcp.tool()(server_info)
@@ -165,7 +160,7 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
     mcp.tool()(query_atomics)
     mcp.tool()(get_validation_schema)
     mcp.tool()(validate_atomic)
-    mcp.tool(enabled=is_execution_enabled)(execute_atomic)
+    mcp.tool(enabled=settings.execution_enabled)(execute_atomic)
 
     # Register custom routes
     @mcp.custom_route("/health", methods=["GET"])

@@ -62,6 +62,8 @@ Each platform supports multiple installation methods:
 
 ### Environment Variables
 
+Check the `.env.example` file for a list of environment variables and their default values.
+
 #### Server Configuration
 
 - `ART_MCP_TRANSPORT` - Transport protocol (stdio, sse, streamable-http)

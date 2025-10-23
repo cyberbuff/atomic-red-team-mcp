@@ -1,10 +1,9 @@
 """Entry point for running the MCP server as a module."""
 
 import logging
-import os
-
 
 from atomic_red_team_mcp.server import create_mcp_server
+from atomic_red_team_mcp.utils.config import get_settings
 
 # Configure logging to stderr to avoid interfering with MCP JSON protocol
 logging.basicConfig(
@@ -19,9 +18,9 @@ logging.getLogger("sse_starlette.sse").setLevel(logging.ERROR)
 
 def main():
     """Main entry point for the CLI."""
-    transport = os.getenv("ART_MCP_TRANSPORT", "stdio")
+    settings = get_settings()
     mcp = create_mcp_server()
-    mcp.run(transport=transport)
+    mcp.run(transport=settings.mcp_transport)
 
 
 if __name__ == "__main__":

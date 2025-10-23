@@ -11,17 +11,15 @@ import git
 import yaml
 
 from atomic_red_team_mcp.models import MetaAtomic, Technique
-from atomic_red_team_mcp.utils.config import get_atomics_dir
+from atomic_red_team_mcp.utils.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
 def download_atomics(force=False) -> None:
     """Download Atomic Red Team atomics from GitHub repository."""
-    atomics_dir = get_atomics_dir()
-    repo_url = os.getenv("ART_GITHUB_URL", "https://github.com")
-    repo_owner = os.getenv("ART_GITHUB_USER", "redcanaryco")
-    repo_name = os.getenv("ART_GITHUB_REPO", "atomic-red-team")
+    settings = get_settings()
+    atomics_dir = settings.get_atomics_dir()
 
     if force:
         shutil.rmtree(atomics_dir, ignore_errors=True)
@@ -37,9 +35,7 @@ def download_atomics(force=False) -> None:
     with tempfile.TemporaryDirectory(prefix="atomic_repo_") as temp_repo_dir:
         try:
             # Clone the repository with depth 1 to get only the latest version
-            git.Repo.clone_from(
-                f"{repo_url}/{repo_owner}/{repo_name}.git", temp_repo_dir, depth=1
-            )
+            git.Repo.clone_from(settings.github_repo_url, temp_repo_dir, depth=1)
 
             # Move only the atomics directory
             source_atomics = os.path.join(temp_repo_dir, "atomics")
@@ -57,7 +53,8 @@ def download_atomics(force=False) -> None:
 
 def load_atomics() -> List[MetaAtomic]:
     """Load atomics from the atomics directory."""
-    atomics_dir = get_atomics_dir()
+    settings = get_settings()
+    atomics_dir = settings.get_atomics_dir()
     atomics = []
 
     for file in glob.glob(f"{atomics_dir}/T*/T*.yaml"):
