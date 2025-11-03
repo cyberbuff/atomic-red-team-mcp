@@ -4,6 +4,7 @@ import logging
 from typing import List, Optional
 
 from fastmcp import Context
+from mcp.shared.exceptions import McpError
 
 from atomic_red_team_mcp.models import Atomic
 from atomic_red_team_mcp.services import load_atomics, run_test
@@ -87,15 +88,27 @@ async def execute_atomic(
 
     guid_to_find = None
     if not auto_generated_guid:
-        result = await ctx.elicit(
-            "What's the atomic test you want to execute?", response_type=str
-        )
-        if result.action == "accept":
-            guid_to_find = result.data
-        elif result.action == "decline":
-            return "Atomic test not provided"
-        else:  # cancel
-            return "Operation cancelled"
+        try:
+            result = await ctx.elicit(
+                "What's the atomic test you want to execute?", response_type=str
+            )
+            if result.action == "accept":
+                guid_to_find = result.data
+            elif result.action == "decline":
+                return "Atomic test not provided"
+            else:  # cancel
+                return "Operation cancelled"
+        except McpError as e:
+            # Client doesn't support elicitation
+            logger.warning(
+                f"Elicitation not supported by client: {e}. auto_generated_guid parameter is required."
+            )
+            return (
+                "Error: The auto_generated_guid parameter is required because the MCP client "
+                "does not support elicitation (interactive prompts). Please provide the GUID directly:\n\n"
+                "execute_atomic(auto_generated_guid='<guid>')\n\n"
+                "Use query_atomics to find the GUID of the test you want to execute."
+            )
     else:
         guid_to_find = auto_generated_guid
 
@@ -110,7 +123,10 @@ async def execute_atomic(
 
     if not matching_atomic:
         return "No atomic test found"
+
     input_arguments = {}
+    elicitation_supported = True
+
     if matching_atomic.input_arguments:
         logger.info(
             f"The atomic test '{matching_atomic.name}' has {len(matching_atomic.input_arguments)} input argument(s)"
@@ -120,7 +136,10 @@ async def execute_atomic(
             default_value = value.get("default", "")
             description = value.get("description", "No description available")
 
-            question = f"""
+            # Try elicitation first, fall back to defaults if not supported
+            try:
+                if elicitation_supported:
+                    question = f"""
 Input argument: {key}
 Description: {description}
 Default value: {default_value}
@@ -128,26 +147,38 @@ Default value: {default_value}
 Would you like to use the default value or provide a custom value?
 (Reply with "default" to use the default, or provide your custom value)
 """
-            result = await ctx.elicit(question, response_type=str)
+                    result = await ctx.elicit(question, response_type=str)
 
-            if result.action == "accept":
-                response = result.data.strip().lower()
-                if response == "default" or response == "use default":
-                    input_arguments[key] = default_value
-                    logger.info(
-                        f"{matching_atomic.auto_generated_guid} - Using default value for '{key}': {default_value}"
+                    if result.action == "accept":
+                        response = result.data.strip().lower()
+                        if response == "default" or response == "use default":
+                            input_arguments[key] = default_value
+                            logger.info(
+                                f"{matching_atomic.auto_generated_guid} - Using default value for '{key}': {default_value}"
+                            )
+                        else:
+                            # Use the provided value
+                            input_arguments[key] = result.data.strip()
+                            logger.info(
+                                f"{matching_atomic.auto_generated_guid} - Using custom value for '{key}': {result.data.strip()}"
+                            )
+                    elif result.action == "decline":
+                        # If declined, use default
+                        input_arguments[key] = default_value
+                        logger.info(f"Using default value for '{key}': {default_value}")
+                    else:  # cancel
+                        return "Operation cancelled by user"
+            except McpError as e:
+                # Client doesn't support elicitation, use default values for all arguments
+                if elicitation_supported:
+                    logger.warning(
+                        f"Elicitation not supported by client: {e}. Using default values for all input arguments."
                     )
-                else:
-                    # Use the provided value
-                    input_arguments[key] = result.data.strip()
-                    logger.info(
-                        f"{matching_atomic.auto_generated_guid} - Using custom value for '{key}': {result.data.strip()}"
-                    )
-            elif result.action == "decline":
-                # If declined, use default
+                    elicitation_supported = False
+
                 input_arguments[key] = default_value
-                logger.info(f"Using default value for '{key}': {default_value}")
-            else:  # cancel
-                return "Operation cancelled by user"
+                logger.info(
+                    f"{matching_atomic.auto_generated_guid} - Using default value for '{key}': {default_value} (elicitation not supported)"
+                )
 
     return run_test(matching_atomic.auto_generated_guid, input_arguments)

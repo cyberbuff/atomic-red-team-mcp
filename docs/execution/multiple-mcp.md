@@ -480,26 +480,41 @@ ______________________________________________________________________
 
 ```json
 {
-	"mcpServers": {
-		"atomic-windows": {
-			"url": "http://192.168.1.10:8000/mcp",
-			"headers": {
-				"Authorization": "Bearer abc123...windows"
-			}
-		},
-		"atomic-linux": {
-			"url": "http://192.168.1.11:8000/mcp",
-			"headers": {
-				"Authorization": "Bearer def456...linux"
-			}
-		},
-		"atomic-macos": {
-			"url": "http://192.168.1.12:8000/mcp",
-			"headers": {
-				"Authorization": "Bearer ghi789...macos"
-			}
-		}
-	}
+  "mcpServers": {
+    "atomic-windows": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://10.2.20.14:8000/mcp",
+        "--header",
+        "Authorization: Bearer abc......windows",
+        "--allow-http"
+      ]
+    },
+    "atomic-linux": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://10.2.20.15:8000/mcp",
+        "--header",
+        "Authorization: Bearer def......linux",
+        "--allow-http"
+      ]
+    },
+    "atomic-macos": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://10.2.20.15:8000/mcp",
+        "--header",
+        "Authorization: Bearer ghi......macos",
+        "--allow-http"
+      ]
+    }
+  }
 }
 ```
 
