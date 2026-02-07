@@ -154,13 +154,52 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
         """Read a atomic test file by technique ID."""
         return read_atomic_document(technique_id, settings.get_atomics_dir())
 
-    # Register tools
-    mcp.tool()(server_info)
-    mcp.tool()(refresh_atomics)
-    mcp.tool()(query_atomics)
-    mcp.tool()(get_validation_schema)
-    mcp.tool()(validate_atomic)
-    mcp.tool(enabled=settings.execution_enabled)(execute_atomic)
+    # Register tools with annotations
+    mcp.tool(
+        annotations={
+            "readOnlyHint": True,
+            "idempotentHint": True,
+        }
+    )(server_info)
+
+    mcp.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,  # Downloads/updates files but doesn't modify system
+            "idempotentHint": True,  # Running multiple times produces same result
+        }
+    )(refresh_atomics)
+
+    mcp.tool(
+        annotations={
+            "readOnlyHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,  # Results may change as atomics are updated
+        }
+    )(query_atomics)
+
+    mcp.tool(
+        annotations={
+            "readOnlyHint": True,
+            "idempotentHint": True,
+        }
+    )(get_validation_schema)
+
+    mcp.tool(
+        annotations={
+            "readOnlyHint": True,  # Only validates, doesn't modify
+            "idempotentHint": True,
+        }
+    )(validate_atomic)
+
+    mcp.tool(
+        enabled=settings.execution_enabled,
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,  # Executes system commands
+            "idempotentHint": False,  # Results may vary each execution
+        },
+    )(execute_atomic)
 
     # Register custom routes
     @mcp.custom_route("/health", methods=["GET"])

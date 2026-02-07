@@ -2,9 +2,11 @@
 
 import platform
 from importlib.metadata import PackageNotFoundError, version
+from socket import AF_INET, getaddrinfo, gethostname
 
 from fastmcp import Context
 
+from atomic_red_team_mcp.models import ServerInfoOutput
 from atomic_red_team_mcp.utils.config import get_settings
 
 # Get version from package metadata
@@ -14,7 +16,14 @@ except PackageNotFoundError:
     __version__ = "dev"
 
 
-def server_info(ctx: Context) -> dict:
+def get_all_ipv4() -> list[str]:
+    ip_list: list[str] = []
+    for ip in getaddrinfo(host=gethostname(), port=None, family=AF_INET):
+        ip_list.append(str(ip[4][0]))
+    return ip_list
+
+
+def server_info(ctx: Context) -> ServerInfoOutput:
     """Get comprehensive information about the MCP server configuration and environment.
 
     This tool returns server metadata including version, transport protocol, operating system,
@@ -28,7 +37,7 @@ def server_info(ctx: Context) -> dict:
         ctx: MCP context (provided automatically by the framework)
 
     Returns:
-        dict: Server information with the following fields:
+        ServerInfoOutput: Server information with the following fields:
             - name (str): Server name - always "Atomic Red Team MCP"
             - version (str): Installed package version (e.g., "1.2.3")
                            Shows "dev" if running from source without installation
@@ -40,6 +49,7 @@ def server_info(ctx: Context) -> dict:
             - data_directory (str): Absolute path to atomic tests storage directory
                                    This is where atomic YAML files are stored
                                    Use this path when creating new atomic tests
+            - execution_enabled (bool): Whether atomic test execution is enabled on this server
 
     Examples:
         # Get server information
@@ -67,10 +77,12 @@ def server_info(ctx: Context) -> dict:
         - OS is detected at runtime and cannot be changed
     """
     settings = get_settings()
-    return {
-        "name": "Atomic Red Team MCP",
-        "version": __version__,
-        "transport": settings.mcp_transport,
-        "os": platform.system(),
-        "data_directory": settings.get_atomics_dir(),
-    }
+
+    return ServerInfoOutput(
+        name="Atomic Red Team MCP",
+        version=__version__,
+        transport=settings.mcp_transport,
+        os=platform.system(),
+        data_directory=settings.get_atomics_dir(),
+        execution_enabled=settings.execution_enabled,
+    )

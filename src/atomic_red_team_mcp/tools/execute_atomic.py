@@ -1,12 +1,15 @@
 """Execute atomic test tool."""
 
+import json
 import logging
+import time
 from typing import List, Optional
 
 from fastmcp import Context
 from mcp.shared.exceptions import McpError
 
-from atomic_red_team_mcp.models import Atomic
+from atomic_red_team_mcp.models import ExecuteAtomicOutput
+from atomic_red_team_mcp.models.outputs import MetaAtomic
 from atomic_red_team_mcp.services import load_atomics, run_test
 
 logger = logging.getLogger(__name__)
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def execute_atomic(
     ctx: Context,
     auto_generated_guid: Optional[str] = None,
-) -> str:
+) -> ExecuteAtomicOutput:
     """Execute an atomic test on the server.
 
     ⚠️ WARNING: This tool executes security tests that may modify system state, create files,
@@ -38,13 +41,16 @@ async def execute_atomic(
                             If not provided, you will be prompted to enter it interactively.
 
     Returns:
-        str: Execution result message containing:
-            - Success/failure status
-            - Command output (stdout/stderr)
-            - Exit codes
-            - Any execution errors or warnings
-
-            The exact format depends on the executor type (powershell, bash, sh, cmd, manual)
+        ExecuteAtomicOutput: Structured output containing:
+            - success (bool): Whether the atomic test executed successfully
+            - atomic_name (str): Name of the executed atomic test
+            - technique_id (str): MITRE ATT&CK technique ID
+            - platform (str): Platform the test was executed on
+            - execution_time (float): Execution time in seconds
+            - stdout (str): Standard output from the test execution
+            - stderr (str): Standard error from the test execution
+            - exit_code (int): Exit code from the executed command
+            - error (str): Error message if execution failed
 
     Interactive Prompts:
         - If auto_generated_guid is not provided, you'll be asked to provide it
@@ -95,24 +101,45 @@ async def execute_atomic(
             if result.action == "accept":
                 guid_to_find = result.data
             elif result.action == "decline":
-                return "Atomic test not provided"
+                return ExecuteAtomicOutput(
+                    success=False,
+                    atomic_name="Unknown",
+                    technique_id="Unknown",
+                    platform="Unknown",
+                    execution_time=0.0,
+                    error="Atomic test GUID not provided",
+                )
             else:  # cancel
-                return "Operation cancelled"
+                return ExecuteAtomicOutput(
+                    success=False,
+                    atomic_name="Unknown",
+                    technique_id="Unknown",
+                    platform="Unknown",
+                    execution_time=0.0,
+                    error="Operation cancelled by user",
+                )
         except McpError as e:
             # Client doesn't support elicitation
             logger.warning(
                 f"Elicitation not supported by client: {e}. auto_generated_guid parameter is required."
             )
-            return (
-                "Error: The auto_generated_guid parameter is required because the MCP client "
-                "does not support elicitation (interactive prompts). Please provide the GUID directly:\n\n"
-                "execute_atomic(auto_generated_guid='<guid>')\n\n"
-                "Use query_atomics to find the GUID of the test you want to execute."
+            return ExecuteAtomicOutput(
+                success=False,
+                atomic_name="Unknown",
+                technique_id="Unknown",
+                platform="Unknown",
+                execution_time=0.0,
+                error=(
+                    "The auto_generated_guid parameter is required because the MCP client "
+                    "does not support elicitation (interactive prompts). Please provide the GUID directly: "
+                    "execute_atomic(auto_generated_guid='<guid>'). "
+                    "Use query_atomics to find the GUID of the test you want to execute."
+                ),
             )
     else:
         guid_to_find = auto_generated_guid
 
-    atomics: List[Atomic] = load_atomics()
+    atomics: List[MetaAtomic] = load_atomics()
 
     matching_atomic = None
 
@@ -122,7 +149,14 @@ async def execute_atomic(
             break
 
     if not matching_atomic:
-        return "No atomic test found"
+        return ExecuteAtomicOutput(
+            success=False,
+            atomic_name="Unknown",
+            technique_id="Unknown",
+            platform="Unknown",
+            execution_time=0.0,
+            error=f"No atomic test found with GUID: {guid_to_find}",
+        )
 
     input_arguments = {}
     elicitation_supported = True
@@ -167,7 +201,14 @@ Would you like to use the default value or provide a custom value?
                         input_arguments[key] = default_value
                         logger.info(f"Using default value for '{key}': {default_value}")
                     else:  # cancel
-                        return "Operation cancelled by user"
+                        return ExecuteAtomicOutput(
+                            success=False,
+                            atomic_name=matching_atomic.name,
+                            technique_id=matching_atomic.technique_id or "Unknown",
+                            platform=", ".join(matching_atomic.supported_platforms),
+                            execution_time=0.0,
+                            error="Operation cancelled by user during input argument collection",
+                        )
             except McpError as e:
                 # Client doesn't support elicitation, use default values for all arguments
                 if elicitation_supported:
@@ -181,4 +222,59 @@ Would you like to use the default value or provide a custom value?
                     f"{matching_atomic.auto_generated_guid} - Using default value for '{key}': {default_value} (elicitation not supported)"
                 )
 
-    return run_test(matching_atomic.auto_generated_guid, input_arguments)
+    # Execute the test and measure time
+    start_time = time.time()
+    result_json = run_test(matching_atomic.auto_generated_guid, input_arguments)
+    execution_time = time.time() - start_time
+
+    # Parse the JSON result
+    try:
+        result_data = json.loads(result_json)
+
+        # Check if there was an error
+        if isinstance(result_data, dict) and "error" in result_data:
+            return ExecuteAtomicOutput(
+                success=False,
+                atomic_name=matching_atomic.name,
+                technique_id=matching_atomic.technique_id or "Unknown",
+                platform=", ".join(matching_atomic.supported_platforms),
+                execution_time=execution_time,
+                error=result_data["error"],
+            )
+
+        # Aggregate outputs from all phases
+        stdout_parts = []
+        stderr_parts = []
+        exit_codes = []
+
+        for output in result_data:
+            phase = output.get("phase", "unknown")
+            stdout_parts.append(f"[{phase}] {output.get('output', '')}")
+            stderr_parts.append(f"[{phase}] {output.get('errors', '')}")
+            if output.get("return_code") is not None:
+                exit_codes.append(output.get("return_code"))
+
+        # Determine success based on exit codes
+        success = all(code == 0 for code in exit_codes) if exit_codes else True
+        final_exit_code = exit_codes[-1] if exit_codes else 0
+
+        return ExecuteAtomicOutput(
+            success=success,
+            atomic_name=matching_atomic.name,
+            technique_id=matching_atomic.technique_id or "Unknown",
+            platform=", ".join(matching_atomic.supported_platforms),
+            execution_time=execution_time,
+            stdout="\n".join(stdout_parts),
+            stderr="\n".join(stderr_parts),
+            exit_code=final_exit_code,
+        )
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse execution result: {e}")
+        return ExecuteAtomicOutput(
+            success=False,
+            atomic_name=matching_atomic.name,
+            technique_id=matching_atomic.technique_id or "Unknown",
+            platform=", ".join(matching_atomic.supported_platforms),
+            execution_time=execution_time,
+            error=f"Failed to parse execution result: {e}",
+        )

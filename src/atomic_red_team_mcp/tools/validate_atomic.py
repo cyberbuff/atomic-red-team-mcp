@@ -5,7 +5,7 @@ import logging
 import yaml
 from fastmcp import Context
 
-from atomic_red_team_mcp.models import Atomic
+from atomic_red_team_mcp.models import Atomic, ValidationOutput
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def get_validation_schema() -> dict:
     return Atomic.model_json_schema()
 
 
-def validate_atomic(yaml_string: str, ctx: Context) -> dict:
+def validate_atomic(yaml_string: str, ctx: Context) -> ValidationOutput:
     """Validate an atomic test YAML string against the official Atomic Red Team schema.
 
     This tool checks if your atomic test follows the correct structure and includes all
@@ -89,7 +89,7 @@ def validate_atomic(yaml_string: str, ctx: Context) -> dict:
                     executor, etc. as defined in the schema.
 
     Returns:
-        dict: Validation result containing:
+        ValidationOutput: Structured validation result containing:
             - valid (bool): Whether the atomic test passes validation
             - message (str): Human-readable success/error message with warnings prominently displayed
             - atomic_name (str): Name of the atomic test (only if valid)
@@ -153,17 +153,35 @@ def validate_atomic(yaml_string: str, ctx: Context) -> dict:
         - The 'message' field contains formatted text with warnings prominently shown
     """
     try:
+        logger.debug("Starting atomic test validation")
+
         if not yaml_string or not yaml_string.strip():
-            return {"valid": False, "error": "YAML string cannot be empty"}
+            logger.warning("Validation failed: Empty YAML string provided")
+            return ValidationOutput(
+                valid=False,
+                message="Validation failed",
+                error="YAML string cannot be empty. Please provide a valid atomic test in YAML format.",
+            )
 
         # Parse YAML
         try:
             atomic_data = yaml.safe_load(yaml_string)
+            logger.debug("YAML parsing successful")
         except yaml.YAMLError as e:
-            return {"valid": False, "error": f"Invalid YAML format: {e}"}
+            logger.warning(f"YAML parsing failed: {e}")
+            return ValidationOutput(
+                valid=False,
+                message="Validation failed",
+                error=f"Invalid YAML format: {e}. Please check your YAML syntax.",
+            )
 
         if not atomic_data:
-            return {"valid": False, "error": "YAML parsed to empty data"}
+            logger.warning("YAML parsed to empty data")
+            return ValidationOutput(
+                valid=False,
+                message="Validation failed",
+                error="YAML parsed to empty data. Please provide a non-empty atomic test.",
+            )
 
         # Check for common mistakes before validation
         validation_warnings = []
@@ -187,26 +205,40 @@ def validate_atomic(yaml_string: str, ctx: Context) -> dict:
         # Validate with Pydantic model
         try:
             atomic = Atomic(**atomic_data)
+            logger.debug(f"Pydantic validation successful for atomic: {atomic.name}")
 
             # Build success message with warnings prominently displayed
             if validation_warnings:
+                logger.warning(
+                    f"Validation warnings for atomic '{atomic.name}': {validation_warnings}"
+                )
                 warning_text = "\n⚠️  " + "\n⚠️  ".join(validation_warnings)
                 message = f"✅ Atomic test validation successful\n{warning_text}\n\nPlease address these warnings before finalizing the atomic test."
             else:
+                logger.info(
+                    f"Atomic test '{atomic.name}' validation successful - no issues found"
+                )
                 message = "✅ Atomic test validation successful - no issues found!"
 
-            result = {
-                "valid": True,
-                "message": message,
-                "atomic_name": atomic.name,
-                "supported_platforms": atomic.supported_platforms,
-            }
-            if validation_warnings:
-                result["warnings"] = validation_warnings
-            return result
+            return ValidationOutput(
+                valid=True,
+                message=message,
+                atomic_name=atomic.name,
+                supported_platforms=atomic.supported_platforms,
+                warnings=validation_warnings if validation_warnings else None,
+            )
         except Exception as validation_error:
-            return {"valid": False, "error": f"Validation error: {validation_error}"}
+            logger.error(f"Pydantic validation failed: {validation_error}")
+            return ValidationOutput(
+                valid=False,
+                message="Validation failed",
+                error=f"Validation error: {validation_error}. Please check your atomic test structure against the schema.",
+            )
 
     except Exception as e:
         logger.error(f"Unexpected error in validate_atomic: {e}")
-        return {"valid": False, "error": f"Unexpected validation error: {e}"}
+        return ValidationOutput(
+            valid=False,
+            message="Validation failed",
+            error=f"Unexpected validation error: {e}",
+        )
