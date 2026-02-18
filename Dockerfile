@@ -1,11 +1,14 @@
-FROM python:3.12-alpine
+FROM python:3.12-slim
 
 # Create a non-root user
-RUN addgroup -g 1000 appuser && \
-	adduser -u 1000 -G appuser -s /bin/sh -D appuser
+RUN useradd -m -u 1000 appuser
 
 # Install system dependencies
-RUN apk add --no-cache curl ca-certificates git
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install the 'uv' CLI and make it accessible to appuser
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
