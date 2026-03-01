@@ -48,7 +48,7 @@ class AtomicIndex:
             for platform in atomic.supported_platforms:
                 self._platform_index[platform.lower()].append(atomic)
 
-        logger.info(
+        logger.debug(
             f"Indexes built: {len(self._technique_index)} techniques, "
             f"{len(self._guid_index)} GUIDs, "
             f"{len(self._platform_index)} platforms"

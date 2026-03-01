@@ -116,7 +116,7 @@ def validate_atomic(yaml_string: str, ctx: Context) -> ValidationOutput:
           command: Get-Process
         '''
         result = validate_atomic(yaml_str, ctx)
-        # Returns: {"valid": True, "message": "✅ Atomic test validation successful...", ...}
+        # result.valid == True, result.message contains success message
 
         # Test with warnings (still valid but needs improvement)
         yaml_str = '''
@@ -129,8 +129,7 @@ def validate_atomic(yaml_string: str, ctx: Context) -> ValidationOutput:
           command: echo "Hello World"
         '''
         result = validate_atomic(yaml_str, ctx)
-        # Returns: {"valid": True, "message": "✅ Atomic test validation successful
-        #          ⚠️  WARNING: Avoid echo/print/Write-Host statements...", "warnings": [...]}
+        # result.valid == True, result.warnings contains warning messages
 
         # Invalid atomic test (missing required field)
         yaml_str = '''
@@ -141,7 +140,7 @@ def validate_atomic(yaml_string: str, ctx: Context) -> ValidationOutput:
           command: ls
         '''
         result = validate_atomic(yaml_str, ctx)
-        # Returns: {"valid": False, "error": "Validation error: ..."}
+        # result.valid == False, result.error contains error message
 
     Raises:
         No exceptions are raised - all errors are returned in the result dictionary.

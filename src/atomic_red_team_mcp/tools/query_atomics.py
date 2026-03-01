@@ -169,13 +169,12 @@ def query_atomics(
         # Apply text search if query is provided
         if query and query.strip():
             query_lower = query.strip().lower()
+            query_words = query_lower.split(" ")
             matching_atomics = []
 
             for atomic in atomics:
-                if all(
-                    query_word in str(atomic.model_dump()).lower()
-                    for query_word in query_lower.split(" ")
-                ):
+                searchable_text = str(atomic.model_dump()).lower()
+                if all(query_word in searchable_text for query_word in query_words):
                     matching_atomics.append(atomic)
         else:
             # No text search, use filtered results

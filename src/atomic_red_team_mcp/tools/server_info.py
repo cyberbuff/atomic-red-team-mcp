@@ -2,7 +2,6 @@
 
 import platform
 from importlib.metadata import PackageNotFoundError, version
-from socket import AF_INET, getaddrinfo, gethostname
 
 from fastmcp import Context
 
@@ -14,13 +13,6 @@ try:
     __version__ = version("atomic-red-team-mcp")
 except PackageNotFoundError:
     __version__ = "dev"
-
-
-def get_all_ipv4() -> list[str]:
-    ip_list: list[str] = []
-    for ip in getaddrinfo(host=gethostname(), port=None, family=AF_INET):
-        ip_list.append(str(ip[4][0]))
-    return ip_list
 
 
 def server_info(ctx: Context) -> ServerInfoOutput:
@@ -54,14 +46,14 @@ def server_info(ctx: Context) -> ServerInfoOutput:
     Examples:
         # Get server information
         info = server_info(ctx)
-        print(f"Running version {info['version']} on {info['os']}")
+        print(f"Running version {info.version} on {info.os}")
 
         # Check if remote server for execution
-        if info['transport'] == 'streamable-http':
+        if info.transport == 'streamable-http':
             print("This is a remote MCP server")
 
         # Get data directory for creating tests
-        data_dir = info['data_directory']
+        data_dir = info.data_directory
         print(f"Create new tests in: {data_dir}/T####/T####.yaml")
 
     Use Cases:
