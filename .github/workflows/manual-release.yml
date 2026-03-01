@@ -1,5 +1,4 @@
 name: Manual Release
-
 on:
   workflow_dispatch:
     inputs:
@@ -12,90 +11,88 @@ on:
           - minor
           - major
         default: 'patch'
-
 permissions:
   contents: write
   packages: write
   id-token: write
-
 jobs:
   bump-and-release:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.PAT_TOKEN }}
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+          persist-credentials: false
+      - name: Configure Git
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${PAT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+      - name: Install uv
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7
+        with:
+          version: "latest"
+          enable-cache: false
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Install bump-my-version
+        run: uv tool install bump-my-version
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(uv tool run bump-my-version show current_version)
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+      - name: Bump version
+        id: bump_version
+        env:
+          VERSION_BUMP: ${{ github.event.inputs.version_bump }}
+        run: |
+          echo "Bumping ${VERSION_BUMP} version..."
+          uv tool run bump-my-version bump "${VERSION_BUMP}"
 
-    - name: Configure Git
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
+          NEW_VERSION=$(uv tool run bump-my-version show current_version)
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+      - name: Push changes
+        env:
+          NEW_VERSION: ${{ steps.bump_version.outputs.version }}
+        run: |
+          git push origin main
+          git push origin "v${NEW_VERSION}"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+        with:
+          tag_name: v${{ steps.bump_version.outputs.version }}
+          name: Release v${{ steps.bump_version.outputs.version }}
+          body: |
+            ## Changes in v${{ steps.bump_version.outputs.version }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        version: "latest"
+            Version bumped from ${{ steps.current_version.outputs.version }} to ${{ steps.bump_version.outputs.version }} (${{ github.event.inputs.version_bump }} release)
 
-    - name: Set up Python
-      run: uv python install 3.12
+            ### What's Changed
+            See the [commit history](https://github.com/${{ github.repository }}/compare/v${{ steps.current_version.outputs.version }}...v${{ steps.bump_version.outputs.version }}) for details.
 
-    - name: Install bump-my-version
-      run: uv tool install bump-my-version
+            ### Installation
 
-    - name: Get current version
-      id: current_version
-      run: |
-        CURRENT_VERSION=$(uv tool run bump-my-version show current_version)
-        echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-        echo "Current version: $CURRENT_VERSION"
+            **Using uvx (recommended):**
+            \`\`\`bash
+            uvx atomic-red-team-mcp@${{ steps.bump_version.outputs.version }}
+            \`\`\`
 
-    - name: Bump version
-      id: bump_version
-      run: |
-        echo "Bumping ${{ github.event.inputs.version_bump }} version..."
-        uv tool run bump-my-version bump ${{ github.event.inputs.version_bump }}
+            **Using Docker:**
+            \`\`\`bash
+            docker run --rm -i ghcr.io/cyberbuff/atomic-red-team-mcp:${{ steps.bump_version.outputs.version }}
+            \`\`\`
 
-        NEW_VERSION=$(uv tool run bump-my-version show current_version)
-        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "New version: $NEW_VERSION"
-
-    - name: Push changes
-      run: |
-        git push origin main
-        git push origin v${{ steps.bump_version.outputs.version }}
-
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: v${{ steps.bump_version.outputs.version }}
-        name: Release v${{ steps.bump_version.outputs.version }}
-        body: |
-          ## Changes in v${{ steps.bump_version.outputs.version }}
-
-          Version bumped from ${{ steps.current_version.outputs.version }} to ${{ steps.bump_version.outputs.version }} (${{ github.event.inputs.version_bump }} release)
-
-          ### What's Changed
-          See the [commit history](https://github.com/${{ github.repository }}/compare/v${{ steps.current_version.outputs.version }}...v${{ steps.bump_version.outputs.version }}) for details.
-
-          ### Installation
-
-          **Using uvx (recommended):**
-          \`\`\`bash
-          uvx atomic-red-team-mcp@${{ steps.bump_version.outputs.version }}
-          \`\`\`
-
-          **Using Docker:**
-          \`\`\`bash
-          docker run --rm -i ghcr.io/cyberbuff/atomic-red-team-mcp:${{ steps.bump_version.outputs.version }}
-          \`\`\`
-
-          **From PyPI:**
-          \`\`\`bash
-          pip install atomic-red-team-mcp==${{ steps.bump_version.outputs.version }}
-          \`\`\`
-        generate_release_notes: true
-        draft: false
-        prerelease: false
+            **From PyPI:**
+            \`\`\`bash
+            pip install atomic-red-team-mcp==${{ steps.bump_version.outputs.version }}
+            \`\`\`
+          generate_release_notes: true
+          draft: false
+          prerelease: false

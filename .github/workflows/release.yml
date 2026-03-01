@@ -1,5 +1,4 @@
 name: Release to PyPI & GitHub Container Registry
-
 on:
   push:
     tags:
@@ -10,107 +9,99 @@ on:
         description: 'Version to release (e.g., v1.0.0)'
         required: true
         type: string
-
 env:
   PACKAGE_NAME: atomic-red-team-mcp
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
-
     steps:
-    - uses: actions/checkout@v5
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        version: "latest"
-
-    - name: Set up Python ${{ matrix.python-version }}
-      run: uv python install ${{ matrix.python-version }}
-
-    - name: Install dependencies
-      run: uv sync --dev
-
-    - name: Test package build
-      run: uv build
-
-    - name: Test package installation
-      run: |
-        uv pip install dist/*.whl
-        uv run atomic-red-team-mcp --help || echo "CLI help command completed"
-
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7
+        with:
+          version: "latest"
+          enable-cache: false
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Test package build
+        run: uv build
+      - name: Test package installation
+        run: |
+          uv pip install dist/*.whl
+          uv run atomic-red-team-mcp --help || echo "CLI help command completed"
   release:
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-
     permissions:
       contents: write
-      id-token: write  # Required for trusted PyPI publishing
-
+      id-token: write # Required for trusted PyPI publishing
     steps:
-    - uses: actions/checkout@v5
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        version: "latest"
-
-    - name: Set up Python
-      run: uv python install 3.10
-
-    - name: Build package
-      run: uv build
-
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          dist/*.whl
-          dist/*.tar.gz
-        generate_release_notes: true
-        draft: false
-        prerelease: false
-
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        # Use trusted publishing (no API token required)
-        # Configure at https://pypi.org/manage/account/publishing/
-        repository-url: https://upload.pypi.org/legacy/
-        verbose: true
-        print-hash: true
-
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7
+        with:
+          version: "latest"
+          enable-cache: false
+      - name: Set up Python
+        run: uv python install 3.10
+      - name: Build package
+        run: uv build
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # release/v1
+        with:
+          # Use trusted publishing (no API token required)
+          # Configure at https://pypi.org/manage/account/publishing/
+          repository-url: https://upload.pypi.org/legacy/
+          verbose: true
+          print-hash: true
   test-pypi-install:
     needs: release
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-
+    permissions: {}
     steps:
-    - name: Wait for PyPI propagation
-      run: sleep 120  # Wait 2 minutes for package to be available
+      - name: Wait for PyPI propagation
+        run: sleep 120 # Wait 2 minutes for package to be available
+      - name: Install uv
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7
+        with:
+          enable-cache: false
+      - name: Test PyPI installation
+        run: |
+          # Extract version from tag
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Testing installation of version $VERSION"
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
+          # Test installation from PyPI
+          uvx ${{ env.PACKAGE_NAME }}@$VERSION --help || echo "CLI help command completed"
 
-    - name: Test PyPI installation
-      run: |
-        # Extract version from tag
-        VERSION=${GITHUB_REF#refs/tags/v}
-        echo "Testing installation of version $VERSION"
-
-        # Test installation from PyPI
-        uvx ${{ env.PACKAGE_NAME }}@$VERSION --help || echo "CLI help command completed"
-
-        # Test that the package can be imported
-        uv run --with ${{ env.PACKAGE_NAME }}==$VERSION python -c "import atomic_red_team_mcp; print('✅ Package imported successfully')"
-
+          # Test that the package can be imported
+          uv run --with ${{ env.PACKAGE_NAME }}==$VERSION python -c "import atomic_red_team_mcp; print('✅ Package imported successfully')"
   build:
     needs: test-pypi-install
     runs-on: ubuntu-latest
@@ -118,51 +109,46 @@ jobs:
       contents: read
       packages: write
       id-token: write
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v5
-
-    - name: Install cosign
-      uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad #v4.0.0
-      with:
-        cosign-release: 'v2.2.4'
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-
-    - name: Log into registry ${{ env.REGISTRY }}
-      uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Extract Docker metadata
-      id: meta
-      uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
-          type=raw,value=latest
-
-    - name: Build and push Docker image
-      id: build-and-push
-      uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-      with:
-        context: .
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-    - name: Sign the published Docker image
-      env:
-        TAGS: ${{ steps.meta.outputs.tags }}
-        DIGEST: ${{ steps.build-and-push.outputs.digest }}
-      run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+      - name: Install cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad #v4.0.0
+        with:
+          cosign-release: 'v2.2.4'
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Log into registry ${{ env.REGISTRY }}
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Sign the published Docker image
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
