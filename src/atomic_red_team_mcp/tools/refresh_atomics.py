@@ -58,11 +58,6 @@ async def refresh_atomics(ctx: Context) -> RefreshAtomicsOutput:
         # ART_GITHUB_REPO=custom-atomics
         refresh_atomics(ctx)
 
-    Raises:
-        Exception: If Git clone fails (network issues, invalid repository)
-        Exception: If atomic test parsing fails (invalid YAML format)
-        Exception: If disk space is insufficient for repository clone
-
     Notes:
         - This operation may take 30-60 seconds depending on network speed
         - Requires internet connectivity to GitHub

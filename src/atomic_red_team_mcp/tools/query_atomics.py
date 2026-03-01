@@ -169,7 +169,7 @@ def query_atomics(
         # Apply text search if query is provided
         if query and query.strip():
             query_lower = query.strip().lower()
-            query_words = query_lower.split(" ")
+            query_words = query_lower.split()
             matching_atomics = []
 
             for atomic in atomics:

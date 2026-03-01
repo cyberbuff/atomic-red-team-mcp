@@ -79,10 +79,6 @@ async def execute_atomic(
 
         5. If needed, run cleanup (if test has cleanup_command)
 
-    Raises:
-        Exception: If test GUID is not found in the atomic tests database
-        Exception: If execution fails due to system errors or invalid commands
-
     Notes:
         - This tool is disabled by default (requires ART_EXECUTION_ENABLED=true)
         - Tests run with the same privileges as the MCP server

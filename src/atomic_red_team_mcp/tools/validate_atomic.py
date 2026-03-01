@@ -143,7 +143,7 @@ def validate_atomic(yaml_string: str, ctx: Context) -> ValidationOutput:
         # result.valid == False, result.error contains error message
 
     Raises:
-        No exceptions are raised - all errors are returned in the result dictionary.
+        No exceptions are raised - all errors are returned in the ValidationOutput model.
 
     Notes:
         - Always check the 'valid' field before using the atomic test

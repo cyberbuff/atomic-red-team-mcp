@@ -86,16 +86,22 @@ class AtomicIndex:
             List of atomic tests supporting the platform
         """
         platform_lower = platform.lower()
-        results = []
 
         # Exact match first
         if platform_lower in self._platform_index:
-            results.extend(self._platform_index[platform_lower])
-        else:
-            # Partial match fallback
-            for indexed_platform, atomics in self._platform_index.items():
-                if platform_lower in indexed_platform:
-                    results.extend(atomics)
+            return list(self._platform_index[platform_lower])
+
+        # Partial match fallback - deduplicate by GUID to avoid returning
+        # the same atomic multiple times when it matches several indexed keys
+        results: List[MetaAtomic] = []
+        seen_guids: Set[str] = set()
+        for indexed_platform, atomics in self._platform_index.items():
+            if platform_lower in indexed_platform:
+                for atomic in atomics:
+                    guid_str = str(atomic.auto_generated_guid)
+                    if guid_str not in seen_guids:
+                        seen_guids.add(guid_str)
+                        results.append(atomic)
 
         return results
 
