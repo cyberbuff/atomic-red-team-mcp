@@ -4,13 +4,48 @@ FROM python:3.12-slim
 RUN useradd -m -u 1000 appuser
 
 # Install system dependencies
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
+    apt-transport-https \
+    at \
+    build-essential \
     ca-certificates \
+    ccrypt \
+    clang \
+    cron \
+    curl \
+    ed \
     git \
+    gnupg \
+    golang \
+    iproute2 \
+    iputils-ping \
+    kmod \
+    less \
+    libpam0g-dev \
+    lsof \
+    netcat-openbsd \
+    net-tools \
+    nmap \
+    p7zip \
+    rsync \
+    samba \
+    selinux-utils \
+    ssh \
+    sshpass \
+    sudo \
+    tcpdump \
+    telnet \
+    tor \
+    ufw \
+    vim \
+    wget \
+    whois \
+    zip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install the 'uv' CLI and make it accessible to appuser
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 	mv /root/.local/bin/uv /usr/local/bin/uv && \
 	chmod +x /usr/local/bin/uv
@@ -28,7 +63,7 @@ ENV ART_MCP_TRANSPORT="streamable-http"
 
 # Copy and install only requirements first (caching)
 COPY --chown=appuser:appuser pyproject.toml uv.lock ./
-RUN uv sync --no-install-project
+RUN uv sync --no-install-project --locked
 
 # Now copy everything from the current directory into /app
 COPY --chown=appuser:appuser . .

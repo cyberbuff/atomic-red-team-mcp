@@ -17,6 +17,10 @@ repos:
         - id: ruff-check
           args: [ --fix ]
         - id: ruff-format
+    - repo: https://github.com/hadolint/hadolint
+      rev: v2.14.0
+      hooks:
+        - id: hadolint
     - repo: https://github.com/executablebooks/mdformat
       rev: 0.7.21
       hooks:
