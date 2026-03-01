@@ -8,8 +8,7 @@ from typing import List, Optional
 from fastmcp import Context
 from mcp.shared.exceptions import McpError
 
-from atomic_red_team_mcp.models import ExecuteAtomicOutput
-from atomic_red_team_mcp.models.outputs import MetaAtomic
+from atomic_red_team_mcp.models import ExecuteAtomicOutput, MetaAtomic
 from atomic_red_team_mcp.services import load_atomics, run_test
 
 logger = logging.getLogger(__name__)
