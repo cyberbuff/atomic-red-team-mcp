@@ -11,8 +11,9 @@ repos:
           - id: trailing-whitespace
           - id: check-ast
           - id: check-builtin-literals
+          - id: check-merge-conflict
     - repo: https://github.com/astral-sh/ruff-pre-commit
-      rev: v0.14.1
+      rev: v0.15.9
       hooks:
         - id: ruff-check
           args: [ --fix ]
@@ -21,10 +22,15 @@ repos:
       rev: v2.14.0
       hooks:
         - id: hadolint
+    - repo: https://github.com/zizmorcore/zizmor-pre-commit
+      rev: v1.23.1
+      hooks:
+        - id: zizmor
+          args: [--fix]
     - repo: https://github.com/executablebooks/mdformat
-      rev: 0.7.21
+      rev: 1.0.0
       hooks:
         - id: mdformat
+          language_version: python3.12
           additional_dependencies:
             - mdformat-gfm
-            - mdformat-tables

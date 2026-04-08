@@ -1,14 +1,17 @@
 """Query atomics tool."""
 
-import logging
 import re
-from typing import List, Optional
+import time
+from typing import Optional
 
 from fastmcp import Context
+from fastmcp.utilities.pagination import paginate_sequence
 
-from atomic_red_team_mcp.models import MetaAtomic
+from atomic_red_team_mcp.models import QueryAtomicsOutput
+from atomic_red_team_mcp.services import AtomicIndex
 
-logger = logging.getLogger(__name__)
+_DEFAULT_PAGE_SIZE = 50
+_MAX_PAGE_SIZE = 200
 
 
 def query_atomics(
@@ -18,12 +21,15 @@ def query_atomics(
     technique_id: Optional[str] = None,
     technique_name: Optional[str] = None,
     supported_platforms: Optional[str] = None,
-) -> List[MetaAtomic]:
+    cursor: Optional[str] = None,
+    limit: int = _DEFAULT_PAGE_SIZE,
+) -> QueryAtomicsOutput:
     """Search and filter atomic tests across the repository.
 
     This tool searches through all atomic tests and returns matches based on your
     criteria. You can search by free-text query, or filter by specific attributes like
-    technique ID, GUID, or platform.
+    technique ID, GUID, or platform. Results are paginated — use the returned
+    `next_cursor` to fetch subsequent pages.
 
     Args:
         query: Free-text search term to match against all atomic test fields including
@@ -50,93 +56,107 @@ def query_atomics(
                             iaas:gcp, esxi
                             Example: "windows", "linux", "macos"
 
+        cursor: Opaque pagination cursor returned by a previous call as `next_cursor`.
+                Omit or pass null to start from the first page.
+
+        limit: Maximum number of results to return per page (1–200, default 50).
+
     Returns:
-        List[MetaAtomic]: A list of matching atomic tests. Each test includes:
-            - name: Descriptive name of the test
-            - description: Detailed explanation of what the test does
-            - technique_id: Associated MITRE ATT&CK technique ID
-            - technique_name: Human-readable technique name
-            - supported_platforms: List of platforms where test can run
-            - executor: Execution details (command, cleanup, etc.)
-            - input_arguments: Configurable parameters for the test
-            - auto_generated_guid: Unique identifier for the test
-
-    Examples:
-        # Find all PowerShell-related tests
-        query_atomics(ctx, query="powershell")
-
-        # Find all Windows registry tests
-        query_atomics(ctx, query="registry", supported_platforms="windows")
-
-        # Find specific technique
-        query_atomics(ctx, query="", technique_id="T1059.001")
-
-        # Find test by GUID
-        query_atomics(ctx, query="", guid="a8c41029-8d2a-4661-ab83-e5104c1cb667")
+        QueryAtomicsOutput: Structured output containing:
+            - total_results: Total number of matching atomic tests
+            - atomics: List of matching atomic tests for this page
+            - next_cursor: Opaque cursor for the next page, or null if last page
+            - query_metadata: Information about applied filters
 
     Raises:
-        ValueError: If query is empty or exceeds 1000 characters
+        ValueError: If query is empty without any filters
+        ValueError: If query exceeds 1000 characters
         ValueError: If technique_id format is invalid (must be T#### or T####.###)
+        ValueError: If limit is outside the range 1–200
+        ValueError: If cursor is malformed
     """
-    try:
-        # Input validation
-        if not query or not query.strip():
-            raise ValueError("Query parameter cannot be empty")
+    if (not query or not query.strip()) and not (
+        guid or technique_id or technique_name or supported_platforms
+    ):
+        raise ValueError(
+            "Query parameter cannot be empty without filters. "
+            "Examples: query='powershell registry' to find PowerShell tests related to registry, "
+            "or use filters like technique_id='T1059.001' to search by MITRE ATT&CK technique."
+        )
 
-        if len(query) > 1000:  # Prevent extremely long queries
-            raise ValueError("Query too long (max 1000 characters)")
+    if query and len(query) > 1000:
+        raise ValueError(
+            "Query too long (max 1000 characters). "
+            "Please shorten your search query or use specific filters like technique_id or guid."
+        )
 
-        # Validate technique_id format if provided
-        if technique_id and not re.match(r"^T\d{4}(?:\.\d{3})?$", technique_id):
-            raise ValueError(f"Invalid technique ID format: {technique_id}")
+    if not (1 <= limit <= _MAX_PAGE_SIZE):
+        raise ValueError(f"limit must be between 1 and {_MAX_PAGE_SIZE}")
 
-        atomics = ctx.request_context.lifespan_context.atomics
+    if technique_id and not re.match(r"^T\d{4}(?:\.\d{3})?$", technique_id):
+        raise ValueError(
+            f"Invalid technique ID format: {technique_id}. "
+            "Must follow the format T#### or T####.### (e.g., T1059 or T1059.001)"
+        )
 
-        if not atomics:
-            logger.warning("No atomics loaded in memory")
-            return []
+    start_time = time.time()
+    atomics = ctx.lifespan_context.get("atomics", [])
+    index: AtomicIndex | None = ctx.lifespan_context.get("index")
 
-        # Apply filters
-        if supported_platforms:
-            atomics = [
-                atomic
-                for atomic in atomics
-                if any(
-                    supported_platforms.lower() in platform.lower()
-                    for platform in atomic.supported_platforms
-                )
-            ]
+    if not atomics or index is None:
+        ctx.debug("No atomics loaded in memory")
+        return QueryAtomicsOutput(
+            total_results=0,
+            atomics=[],
+            next_cursor=None,
+            query_metadata={"query": query, "filters_applied": []},
+        )
 
-        if guid:
-            atomics = [
-                atomic for atomic in atomics if str(atomic.auto_generated_guid) == guid
-            ]
+    ctx.debug(f"Index stats: {index.stats()}")
 
-        if technique_id:
-            atomics = [
-                atomic for atomic in atomics if atomic.technique_id == technique_id
-            ]
+    # Apply indexed filters for O(1) lookups
+    if guid:
+        atomic = index.get_by_guid(guid)
+        atomics = [atomic] if atomic else []
+        ctx.debug(f"GUID lookup took {time.time() - start_time:.4f}s")
+    elif technique_id:
+        atomics = index.get_by_technique_id(technique_id)
+        ctx.debug(f"Technique ID lookup took {time.time() - start_time:.4f}s")
+    elif supported_platforms:
+        atomics = index.get_by_platform(supported_platforms)
+        ctx.debug(f"Platform lookup took {time.time() - start_time:.4f}s")
 
-        if technique_name:
-            atomics = [
-                atomic
-                for atomic in atomics
-                if technique_name.lower() in (atomic.technique_name or "").lower()
-            ]
+    if technique_name:
+        atomics = [
+            a
+            for a in atomics
+            if technique_name.lower() in (a.technique_name or "").lower()
+        ]
 
-        query_lower = query.strip().lower()
-        matching_atomics = []
+    if query and query.strip():
+        atomics = index.search_text(atomics, query.strip().lower().split())
 
-        for atomic in atomics:
-            if all(
-                query_word in str(atomic.model_dump()).lower()
-                for query_word in query_lower.split(" ")
-            ):
-                matching_atomics.append(atomic)
+    total_results = len(atomics)
+    page, next_cursor = paginate_sequence(atomics, cursor, limit)
 
-        logger.info(f"Query '{query}' returned {len(matching_atomics)} results")
-        return matching_atomics
+    query_metadata: dict = {"query": query, "filters_applied": []}
+    if guid:
+        query_metadata["filters_applied"].append(f"guid={guid}")
+    if technique_id:
+        query_metadata["filters_applied"].append(f"technique_id={technique_id}")
+    if technique_name:
+        query_metadata["filters_applied"].append(f"technique_name={technique_name}")
+    if supported_platforms:
+        query_metadata["filters_applied"].append(f"platform={supported_platforms}")
 
-    except Exception as e:
-        logger.error(f"Error in query_atomics: {e}")
-        raise
+    ctx.info(
+        f"Query '{query}' with filters {query_metadata['filters_applied']} "
+        f"returned {total_results} total, showing {len(page)}"
+    )
+
+    return QueryAtomicsOutput(
+        total_results=total_results,
+        atomics=page,
+        next_cursor=next_cursor,
+        query_metadata=query_metadata,
+    )

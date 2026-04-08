@@ -1,15 +1,19 @@
 """Refresh atomics tool."""
 
-import logging
+import asyncio
 
 from fastmcp import Context
+from fastmcp.dependencies import Progress
 
-from atomic_red_team_mcp.services import download_atomics, load_atomics
+from atomic_red_team_mcp.models import RefreshAtomicsOutput
+from atomic_red_team_mcp.services import create_index, download_atomics, load_atomics
+from atomic_red_team_mcp.utils.config import get_settings
 
-logger = logging.getLogger(__name__)
 
-
-async def refresh_atomics(ctx: Context) -> str:
+async def refresh_atomics(
+    ctx: Context,
+    progress: Progress = Progress(),
+) -> RefreshAtomicsOutput:
     """Download and reload atomic tests from the GitHub repository.
 
     This tool forces a fresh download of all atomic tests from the configured GitHub
@@ -24,10 +28,14 @@ async def refresh_atomics(ctx: Context) -> str:
 
     Args:
         ctx: MCP context (provided automatically by the framework)
+        progress: Background task progress reporter (injected automatically)
 
     Returns:
-        str: Success message indicating the number of atomic tests refreshed
-             Example: "Successfully refreshed 342 atomics"
+        RefreshAtomicsOutput: Structured output containing:
+            - success (bool): Whether the refresh operation completed successfully
+            - message (str): Human-readable message about the refresh operation
+            - atomics_count (int): Number of atomic tests loaded after refresh
+            - repository_url (str): GitHub repository URL that was used for refresh
 
     Process:
         1. Deletes existing atomic tests directory (if present)
@@ -53,25 +61,49 @@ async def refresh_atomics(ctx: Context) -> str:
         # ART_GITHUB_REPO=custom-atomics
         refresh_atomics(ctx)
 
-    Raises:
-        Exception: If Git clone fails (network issues, invalid repository)
-        Exception: If atomic test parsing fails (invalid YAML format)
-        Exception: If disk space is insufficient for repository clone
-
     Notes:
         - This operation may take 30-60 seconds depending on network speed
+        - Runs as a background task — the client receives a task ID immediately
+          and can poll for completion
         - Requires internet connectivity to GitHub
         - Overwrites any local modifications to atomic tests
         - The repository is cloned with depth=1 for efficiency (only latest commit)
         - Failed YAML files are logged but don't stop the overall refresh
     """
+    settings = get_settings()
     try:
-        download_atomics(force=True)
-        # Reload atomics into memory
-        atomics = load_atomics()
-        ctx.request_context.lifespan_context.atomics = atomics
-        logger.info(f"Successfully refreshed {len(atomics)} atomics")
-        return f"Successfully refreshed {len(atomics)} atomics"
+        await progress.set_total(3)
+
+        await progress.set_message("Downloading atomics from GitHub...")
+        ctx.info("Starting atomic test download from GitHub")
+        await asyncio.to_thread(download_atomics, force=True)
+        await progress.increment()
+
+        await progress.set_message("Loading atomic tests...")
+        atomics = await asyncio.to_thread(load_atomics)
+        await progress.increment()
+
+        await progress.set_message("Updating server memory...")
+        index = create_index(atomics)
+        ctx.lifespan_context["atomics"] = atomics
+        ctx.lifespan_context["index"] = index
+        await progress.increment()
+
+        message = f"Successfully refreshed {len(atomics)} atomics from {settings.github_repo_url}"
+        ctx.info(message)
+
+        return RefreshAtomicsOutput(
+            success=True,
+            message=message,
+            atomics_count=len(atomics),
+            repository_url=settings.github_repo_url,
+        )
     except Exception as e:
-        logger.error(f"Failed to refresh atomics: {e}", exc_info=True)
-        raise
+        error_message = f"Failed to refresh atomics: {e}"
+        ctx.warning(error_message)
+        return RefreshAtomicsOutput(
+            success=False,
+            message=error_message,
+            atomics_count=0,
+            repository_url=settings.github_repo_url,
+        )
