@@ -17,16 +17,10 @@ class QueryAtomicsOutput(BaseModel):
     total_results: int = Field(
         description="Total number of atomic tests matching the query"
     )
-    returned_count: int = Field(
-        description="Number of atomic tests returned in this response"
-    )
     atomics: List[MetaAtomic] = Field(description="List of matching atomic tests")
-    has_more: bool = Field(
-        description="Whether more results are available beyond this page"
-    )
-    next_offset: Optional[int] = Field(
+    next_cursor: Optional[str] = Field(
         default=None,
-        description="Offset value to use for retrieving the next page of results",
+        description="Opaque cursor to pass as `cursor` on the next call. Null when this is the last page.",
     )
     query_metadata: dict = Field(
         default_factory=dict,

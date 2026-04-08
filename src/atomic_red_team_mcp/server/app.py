@@ -1,20 +1,24 @@
 """Main MCP server application."""
 
 import logging
+import time as _time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from typing import List
+from datetime import timedelta
+from typing import Any
 
 from fastmcp import Context, FastMCP
+from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
+from fastmcp.server.tasks import TaskConfig
 from starlette.responses import JSONResponse
 
-from atomic_red_team_mcp.models import MetaAtomic
 from atomic_red_team_mcp.server.auth import configure_auth
+from atomic_red_team_mcp.server.prompts import register_prompts
 from atomic_red_team_mcp.server.resources import read_atomic_document
-from atomic_red_team_mcp.services import download_atomics, load_atomics
+from atomic_red_team_mcp.services import create_index, download_atomics, load_atomics
 from atomic_red_team_mcp.tools import (
     execute_atomic,
+    generate_atomic,
     get_validation_schema,
     query_atomics,
     refresh_atomics,
@@ -26,34 +30,44 @@ from atomic_red_team_mcp.utils.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class AppContext:
-    """Application context with typed dependencies."""
+class TimingMiddleware(Middleware):
+    """Log wall-clock time for every tool call."""
 
-    atomics: List[MetaAtomic]
+    async def on_call_tool(
+        self,
+        context: MiddlewareContext[Any],
+        call_next: CallNext[Any, Any],
+    ) -> Any:
+        start = _time.perf_counter()
+        result = await call_next(context)
+        elapsed = _time.perf_counter() - start
+        tool_name = (
+            context.message.name if hasattr(context.message, "name") else "unknown"
+        )
+        logger.info("Tool '%s' completed in %.3fs", tool_name, elapsed)
+        return result
 
 
 @asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
-    """Manage application lifecycle with type-safe context."""
+async def app_lifespan(server: FastMCP) -> AsyncIterator[dict]:
+    """Manage application lifecycle and expose shared state as a dict."""
     settings = get_settings()
 
-    # Download atomics on startup
     try:
         download_atomics()
         atomics = load_atomics()
+        index = create_index(atomics)
 
-        # Log execution tool status
         if settings.execution_enabled:
             logger.warning(
-                "⚠️  Atomic test execution is ENABLED - tests can be executed on this system"
+                "Atomic test execution is ENABLED - tests can be executed on this system"
             )
         else:
             logger.info(
                 "Atomic test execution is disabled. Set ART_EXECUTION_ENABLED=true to enable."
             )
 
-        yield AppContext(atomics=atomics)
+        yield {"atomics": atomics, "index": index}
     finally:
         pass
 
@@ -62,7 +76,6 @@ def create_mcp_server() -> FastMCP:
     """Create and configure the MCP server."""
     settings = get_settings()
 
-    # Configure authentication
     auth = configure_auth()
 
     instructions = """
@@ -73,37 +86,38 @@ AVAILABLE TOOLS:
 - `refresh_atomics`: Update atomic tests from GitHub repository
 - `get_validation_schema`: Get the JSON schema for atomic test structure
 - `validate_atomic`: Validate atomic test YAML against the schema
+- `generate_atomic`: Generate an atomic test using AI assistance
 - `server_info`: Get server information including version, transport, and OS platform
 """
 
     if settings.execution_enabled:
         instructions += """
-- `execute_atomic`: Execute an atomic test by GUID (requires ENABLE_ATOMIC_EXECUTION=true)
+- `execute_atomic`: Execute an atomic test by GUID (requires ART_EXECUTION_ENABLED=true)
 """
 
     instructions += """
 CREATING NEW ATOMIC TESTS:
 When creating atomic tests, you are acting as an Offensive Security expert. Follow these best practices:
 
-🎯 CORE REQUIREMENTS:
+CORE REQUIREMENTS:
 - Design tests that mirror actual adversary behavior and real-world attack patterns
 - Always validate tests using `validate_atomic` tool before finalizing
 - Use `get_validation_schema` first to understand the required structure
 - Keep external dependencies to a minimum for better portability and reliability
 
-🧹 SYSTEM SAFETY:
+SYSTEM SAFETY:
 - Always include cleanup commands to restore the system to its original state if needed
 - Ensure tests are fully functional and can be executed without errors
 - Search online if needed to find manpages/documentation for tools used
 
-📝 DOCUMENTATION STANDARDS:
+DOCUMENTATION STANDARDS:
 - Use clear, descriptive names that indicate the technique being tested
 - Provide comprehensive descriptions explaining what the test does and why
 - Include external references if you used any online resources
 - Clearly document any required tools, permissions, or system configurations
 - If there are no prerequisites, omit the dependencies section
 
-⚙️ IMPLEMENTATION BEST PRACTICES:
+IMPLEMENTATION BEST PRACTICES:
 - Use parameterized inputs (input_arguments) for flexibility and reusability
 - If there are no input arguments, omit the input_arguments section
 - Do NOT use hardcoded values in commands - use input_arguments instead
@@ -120,7 +134,7 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
 4. **IMPORTANT**: Check the validation result carefully:
    - If validation fails (valid=false), fix the errors and validate again
    - If validation succeeds but has warnings (warnings field present), **ALWAYS address the warnings**
-   - Warnings are displayed with ⚠️  emoji in the message field - show these to the user
+   - Warnings are displayed with emoji in the message field - show these to the user
    - Common warnings: auto_generated_guid present, echo/print commands used
    - Re-validate after fixing warnings to ensure clean validation
 5. Use `server_info` to get the data directory path and create the atomic test in the correct directory.
@@ -130,7 +144,7 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
 
     if settings.is_http_transport and settings.execution_enabled:
         instructions += """
-🚀 ATOMIC TEST EXECUTION:
+ATOMIC TEST EXECUTION:
 - This is a remote MCP server with atomic test execution enabled
 - Execute atomic tests using the `execute_atomic` tool
 - You will be prompted for input arguments if needed
@@ -143,10 +157,10 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
         "Atomic Red Team MCP",
         instructions=instructions,
         lifespan=app_lifespan,
-        host=settings.mcp_host,
-        port=settings.mcp_port,
         auth=auth,
     )
+
+    mcp.add_middleware(TimingMiddleware())
 
     # Register resource
     @mcp.resource("file://documents/{technique_id}")
@@ -154,52 +168,57 @@ WORKFLOW FOR CREATING ATOMIC TESTS:
         """Read a atomic test file by technique ID."""
         return read_atomic_document(technique_id, settings.get_atomics_dir())
 
-    # Register tools with annotations
+    # Register tools
     mcp.tool(
-        annotations={
-            "readOnlyHint": True,
-            "idempotentHint": True,
-        }
+        tags={"admin"},
+        annotations={"readOnlyHint": True, "idempotentHint": True},
     )(server_info)
 
     mcp.tool(
+        tags={"admin"},
+        task=TaskConfig(mode="optional", poll_interval=timedelta(seconds=10)),
         annotations={
             "readOnlyHint": False,
-            "destructiveHint": False,  # Downloads/updates files but doesn't modify system
-            "idempotentHint": True,  # Running multiple times produces same result
-        }
+            "destructiveHint": False,
+            "idempotentHint": True,
+        },
     )(refresh_atomics)
 
     mcp.tool(
+        tags={"query", "search"},
         annotations={
             "readOnlyHint": True,
             "idempotentHint": True,
-            "openWorldHint": True,  # Results may change as atomics are updated
-        }
+            "openWorldHint": True,
+        },
     )(query_atomics)
 
     mcp.tool(
-        annotations={
-            "readOnlyHint": True,
-            "idempotentHint": True,
-        }
+        tags={"validation"},
+        annotations={"readOnlyHint": True, "idempotentHint": True},
     )(get_validation_schema)
 
     mcp.tool(
-        annotations={
-            "readOnlyHint": True,  # Only validates, doesn't modify
-            "idempotentHint": True,
-        }
+        tags={"validation"},
+        annotations={"readOnlyHint": True, "idempotentHint": True},
     )(validate_atomic)
 
     mcp.tool(
-        enabled=settings.execution_enabled,
-        annotations={
-            "readOnlyHint": False,
-            "destructiveHint": True,  # Executes system commands
-            "idempotentHint": False,  # Results may vary each execution
-        },
-    )(execute_atomic)
+        tags={"creation"},
+        annotations={"readOnlyHint": True, "idempotentHint": False},
+    )(generate_atomic)
+
+    if settings.execution_enabled:
+        mcp.tool(
+            tags={"execution", "security"},
+            annotations={
+                "readOnlyHint": False,
+                "destructiveHint": True,
+                "idempotentHint": False,
+            },
+        )(execute_atomic)
+
+    register_prompts(mcp)
 
     # Register custom routes
     @mcp.custom_route("/health", methods=["GET"])

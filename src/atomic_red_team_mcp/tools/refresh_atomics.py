@@ -1,17 +1,19 @@
 """Refresh atomics tool."""
 
-import logging
+import asyncio
 
 from fastmcp import Context
+from fastmcp.dependencies import Progress
 
 from atomic_red_team_mcp.models import RefreshAtomicsOutput
-from atomic_red_team_mcp.services import download_atomics, load_atomics
+from atomic_red_team_mcp.services import create_index, download_atomics, load_atomics
 from atomic_red_team_mcp.utils.config import get_settings
 
-logger = logging.getLogger(__name__)
 
-
-async def refresh_atomics(ctx: Context) -> RefreshAtomicsOutput:
+async def refresh_atomics(
+    ctx: Context,
+    progress: Progress = Progress(),
+) -> RefreshAtomicsOutput:
     """Download and reload atomic tests from the GitHub repository.
 
     This tool forces a fresh download of all atomic tests from the configured GitHub
@@ -26,6 +28,7 @@ async def refresh_atomics(ctx: Context) -> RefreshAtomicsOutput:
 
     Args:
         ctx: MCP context (provided automatically by the framework)
+        progress: Background task progress reporter (injected automatically)
 
     Returns:
         RefreshAtomicsOutput: Structured output containing:
@@ -60,6 +63,8 @@ async def refresh_atomics(ctx: Context) -> RefreshAtomicsOutput:
 
     Notes:
         - This operation may take 30-60 seconds depending on network speed
+        - Runs as a background task — the client receives a task ID immediately
+          and can poll for completion
         - Requires internet connectivity to GitHub
         - Overwrites any local modifications to atomic tests
         - The repository is cloned with depth=1 for efficiency (only latest commit)
@@ -67,13 +72,25 @@ async def refresh_atomics(ctx: Context) -> RefreshAtomicsOutput:
     """
     settings = get_settings()
     try:
-        download_atomics(force=True)
-        # Reload atomics into memory
-        atomics = load_atomics()
-        ctx.request_context.lifespan_context.atomics = atomics
+        await progress.set_total(3)
+
+        await progress.set_message("Downloading atomics from GitHub...")
+        ctx.info("Starting atomic test download from GitHub")
+        await asyncio.to_thread(download_atomics, force=True)
+        await progress.increment()
+
+        await progress.set_message("Loading atomic tests...")
+        atomics = await asyncio.to_thread(load_atomics)
+        await progress.increment()
+
+        await progress.set_message("Updating server memory...")
+        index = create_index(atomics)
+        ctx.lifespan_context["atomics"] = atomics
+        ctx.lifespan_context["index"] = index
+        await progress.increment()
 
         message = f"Successfully refreshed {len(atomics)} atomics from {settings.github_repo_url}"
-        logger.info(message)
+        ctx.info(message)
 
         return RefreshAtomicsOutput(
             success=True,
@@ -83,7 +100,7 @@ async def refresh_atomics(ctx: Context) -> RefreshAtomicsOutput:
         )
     except Exception as e:
         error_message = f"Failed to refresh atomics: {e}"
-        logger.error(error_message, exc_info=True)
+        ctx.warning(error_message)
         return RefreshAtomicsOutput(
             success=False,
             message=error_message,

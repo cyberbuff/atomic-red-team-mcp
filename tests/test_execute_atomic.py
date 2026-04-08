@@ -1,14 +1,12 @@
 """Tests for execute_atomic tool."""
 
-import json
 import uuid
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
 from atomic_red_team_mcp.models import CommandExecutor, ExecuteAtomicOutput, MetaAtomic
 from atomic_red_team_mcp.tools.execute_atomic import execute_atomic
-
 
 SAMPLE_GUID = "a8c41029-8d2a-4661-ab83-e5104c1cb667"
 
@@ -26,7 +24,18 @@ SAMPLE_ATOMIC = MetaAtomic(
 def mock_context():
     ctx = Mock()
     ctx.elicit = AsyncMock()
+    ctx.report_progress = AsyncMock()
     return ctx
+
+
+def _make_runner(captured_outputs):
+    """Build a mock AtomicRunner context manager with given captured_outputs."""
+    runner = MagicMock()
+    runner.captured_outputs = captured_outputs
+    runner.run_phase = Mock()
+    runner.__enter__ = Mock(return_value=runner)
+    runner.__exit__ = Mock(return_value=False)
+    return runner
 
 
 @pytest.mark.anyio
@@ -74,31 +83,35 @@ async def test_execute_atomic_elicitation_cancel(mock_context):
 
 
 @pytest.mark.anyio
-async def test_execute_atomic_json_parse_failure(mock_context):
-    """Test that a JSON parse error returns success=False with error detail."""
+async def test_execute_atomic_runner_exception(mock_context):
+    """Test that an AtomicRunner exception returns success=False with error detail."""
+    runner = _make_runner([])
+    runner.__enter__ = Mock(side_effect=RuntimeError("runner blew up"))
+
     with (
         patch(
             "atomic_red_team_mcp.tools.execute_atomic.load_atomics",
             return_value=[SAMPLE_ATOMIC],
         ),
         patch(
-            "atomic_red_team_mcp.tools.execute_atomic.run_test",
-            return_value="not valid json",
+            "atomic_red_team_mcp.tools.execute_atomic.AtomicRunner",
+            return_value=runner,
         ),
     ):
         result = await execute_atomic(mock_context, auto_generated_guid=SAMPLE_GUID)
 
     assert isinstance(result, ExecuteAtomicOutput)
     assert result.success is False
-    assert "parse" in result.error.lower()
+    assert "runner blew up" in result.error
 
 
 @pytest.mark.anyio
 async def test_execute_atomic_success(mock_context):
     """Test successful execution returns structured output with correct fields."""
-    run_output = json.dumps(
-        [{"phase": "test", "output": "stdout text", "errors": "", "return_code": 0}]
-    )
+    captured = [
+        {"phase": "test", "output": "stdout text", "errors": "", "return_code": 0}
+    ]
+    runner = _make_runner(captured)
 
     with (
         patch(
@@ -106,8 +119,8 @@ async def test_execute_atomic_success(mock_context):
             return_value=[SAMPLE_ATOMIC],
         ),
         patch(
-            "atomic_red_team_mcp.tools.execute_atomic.run_test",
-            return_value=run_output,
+            "atomic_red_team_mcp.tools.execute_atomic.AtomicRunner",
+            return_value=runner,
         ),
     ):
         result = await execute_atomic(mock_context, auto_generated_guid=SAMPLE_GUID)
@@ -120,9 +133,12 @@ async def test_execute_atomic_success(mock_context):
 
 
 @pytest.mark.anyio
-async def test_execute_atomic_error_in_result(mock_context):
-    """Test that an error dict in the JSON result returns success=False."""
-    run_output = json.dumps({"error": "Command not found"})
+async def test_execute_atomic_nonzero_exit(mock_context):
+    """Test that a non-zero exit code from a phase returns success=False."""
+    captured = [
+        {"phase": "execution", "output": "", "errors": "fail", "return_code": 1}
+    ]
+    runner = _make_runner(captured)
 
     with (
         patch(
@@ -130,12 +146,12 @@ async def test_execute_atomic_error_in_result(mock_context):
             return_value=[SAMPLE_ATOMIC],
         ),
         patch(
-            "atomic_red_team_mcp.tools.execute_atomic.run_test",
-            return_value=run_output,
+            "atomic_red_team_mcp.tools.execute_atomic.AtomicRunner",
+            return_value=runner,
         ),
     ):
         result = await execute_atomic(mock_context, auto_generated_guid=SAMPLE_GUID)
 
     assert isinstance(result, ExecuteAtomicOutput)
     assert result.success is False
-    assert "Command not found" in result.error
+    assert result.exit_code == 1

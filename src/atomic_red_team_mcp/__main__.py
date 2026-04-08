@@ -20,7 +20,11 @@ def main():
     """Main entry point for the CLI."""
     settings = get_settings()
     mcp = create_mcp_server()
-    mcp.run(transport=settings.mcp_transport)
+    mcp.run(
+        transport=settings.mcp_transport,
+        host=settings.mcp_host,
+        port=settings.mcp_port,
+    )
 
 
 if __name__ == "__main__":

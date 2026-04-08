@@ -1,17 +1,16 @@
 """Execute atomic test tool."""
 
-import json
-import logging
+import asyncio
 import time
 from typing import List, Optional
 
 from fastmcp import Context
 from mcp.shared.exceptions import McpError
+from pydantic import create_model
 
 from atomic_red_team_mcp.models import ExecuteAtomicOutput, MetaAtomic
-from atomic_red_team_mcp.services import load_atomics, run_test
-
-logger = logging.getLogger(__name__)
+from atomic_red_team_mcp.services import load_atomics
+from atomic_red_team_mcp.services.executor import AtomicRunner
 
 
 async def execute_atomic(
@@ -20,7 +19,7 @@ async def execute_atomic(
 ) -> ExecuteAtomicOutput:
     """Execute an atomic test on the server.
 
-    ⚠️ WARNING: This tool executes security tests that may modify system state, create files,
+    WARNING: This tool executes security tests that may modify system state, create files,
     or perform actions that security tools may flag as malicious. Only use in controlled,
     isolated environments (test VMs, sandboxes).
 
@@ -53,10 +52,8 @@ async def execute_atomic(
 
     Interactive Prompts:
         - If auto_generated_guid is not provided, you'll be asked to provide it
-        - For tests with input_arguments, you'll be prompted for each argument:
-          * You can accept the default value by typing "default"
-          * Or provide a custom value
-          * Each prompt shows the argument description and default value
+        - For tests with input_arguments, you'll be prompted with a structured form
+          to fill in all arguments at once (or accept defaults)
         - You can cancel execution at any time during prompts
 
     Examples:
@@ -76,8 +73,6 @@ async def execute_atomic(
            execute_atomic(ctx, auto_generated_guid="<guid>")
 
         4. Review the execution output
-
-        5. If needed, run cleanup (if test has cleanup_command)
 
     Notes:
         - This tool is disabled by default (requires ART_EXECUTION_ENABLED=true)
@@ -113,11 +108,7 @@ async def execute_atomic(
                     execution_time=0.0,
                     error="Operation cancelled by user",
                 )
-        except McpError as e:
-            # Client doesn't support elicitation
-            logger.warning(
-                f"Elicitation not supported by client: {e}. auto_generated_guid parameter is required."
-            )
+        except McpError:
             return ExecuteAtomicOutput(
                 success=False,
                 atomic_name="Unknown",
@@ -137,7 +128,6 @@ async def execute_atomic(
     atomics: List[MetaAtomic] = load_atomics()
 
     matching_atomic = None
-
     for atomic in atomics:
         if str(atomic.auto_generated_guid) == guid_to_find:
             matching_atomic = atomic
@@ -153,106 +143,90 @@ async def execute_atomic(
             error=f"No atomic test found with GUID: {guid_to_find}",
         )
 
-    input_arguments = {}
-    elicitation_supported = True
+    ctx.info(
+        f"Preparing to execute '{matching_atomic.name}' ({matching_atomic.technique_id})"
+    )
+
+    input_arguments: dict = {}
 
     if matching_atomic.input_arguments:
-        logger.info(
-            f"The atomic test '{matching_atomic.name}' has {len(matching_atomic.input_arguments)} input argument(s)"
+        # Collect all arguments in a single structured elicitation
+        field_defs = {
+            key: (str, spec.get("default", ""))
+            for key, spec in matching_atomic.input_arguments.items()
+        }
+        InputArgsModel = create_model("InputArguments", **field_defs)
+
+        arg_descriptions = "\n".join(
+            f"  - {k}: {v.get('description', '')} (default: {v.get('default', '')})"
+            for k, v in matching_atomic.input_arguments.items()
+        )
+        prompt = (
+            f"Provide input arguments for '{matching_atomic.name}'.\n\n"
+            f"Arguments:\n{arg_descriptions}\n\n"
+            "Leave fields unchanged to use default values."
         )
 
-        for key, value in matching_atomic.input_arguments.items():
-            default_value = value.get("default", "")
-            description = value.get("description", "No description available")
-
-            # Try elicitation first, fall back to defaults if not supported
-            try:
-                if elicitation_supported:
-                    question = f"""
-Input argument: {key}
-Description: {description}
-Default value: {default_value}
-
-Would you like to use the default value or provide a custom value?
-(Reply with "default" to use the default, or provide your custom value)
-"""
-                    result = await ctx.elicit(question, response_type=str)
-
-                    if result.action == "accept":
-                        response = result.data.strip().lower()
-                        if response == "default" or response == "use default":
-                            input_arguments[key] = default_value
-                            logger.info(
-                                f"{matching_atomic.auto_generated_guid} - Using default value for '{key}': {default_value}"
-                            )
-                        else:
-                            # Use the provided value
-                            input_arguments[key] = result.data.strip()
-                            logger.info(
-                                f"{matching_atomic.auto_generated_guid} - Using custom value for '{key}': {result.data.strip()}"
-                            )
-                    elif result.action == "decline":
-                        # If declined, use default
-                        input_arguments[key] = default_value
-                        logger.info(f"Using default value for '{key}': {default_value}")
-                    else:  # cancel
-                        return ExecuteAtomicOutput(
-                            success=False,
-                            atomic_name=matching_atomic.name,
-                            technique_id=matching_atomic.technique_id or "Unknown",
-                            platform=", ".join(matching_atomic.supported_platforms),
-                            execution_time=0.0,
-                            error="Operation cancelled by user during input argument collection",
-                        )
-            except McpError as e:
-                # Client doesn't support elicitation, use default values for all arguments
-                if elicitation_supported:
-                    logger.warning(
-                        f"Elicitation not supported by client: {e}. Using default values for all input arguments."
-                    )
-                    elicitation_supported = False
-
-                input_arguments[key] = default_value
-                logger.info(
-                    f"{matching_atomic.auto_generated_guid} - Using default value for '{key}': {default_value} (elicitation not supported)"
+        try:
+            elicit_result = await ctx.elicit(prompt, response_type=InputArgsModel)
+            if elicit_result.action == "accept":
+                input_arguments = elicit_result.data.model_dump()
+                ctx.info(f"Collected {len(input_arguments)} input argument(s)")
+            elif elicit_result.action == "cancel":
+                return ExecuteAtomicOutput(
+                    success=False,
+                    atomic_name=matching_atomic.name,
+                    technique_id=matching_atomic.technique_id or "Unknown",
+                    platform=", ".join(matching_atomic.supported_platforms),
+                    execution_time=0.0,
+                    error="Operation cancelled by user during input argument collection",
                 )
+            else:  # decline — use defaults
+                input_arguments = {
+                    k: v.get("default", "")
+                    for k, v in matching_atomic.input_arguments.items()
+                }
+        except McpError:
+            # Client doesn't support elicitation — fall back to defaults
+            input_arguments = {
+                k: v.get("default", "")
+                for k, v in matching_atomic.input_arguments.items()
+            }
+            ctx.info("Elicitation not supported; using default argument values")
 
-    # Execute the test and measure time
     start_time = time.time()
-    result_json = run_test(matching_atomic.auto_generated_guid, input_arguments)
-    execution_time = time.time() - start_time
-
-    # Parse the JSON result
     try:
-        result_data = json.loads(result_json)
-
-        # Check if there was an error
-        if isinstance(result_data, dict) and "error" in result_data:
-            return ExecuteAtomicOutput(
-                success=False,
-                atomic_name=matching_atomic.name,
-                technique_id=matching_atomic.technique_id or "Unknown",
-                platform=", ".join(matching_atomic.supported_platforms),
-                execution_time=execution_time,
-                error=result_data["error"],
+        with AtomicRunner(
+            matching_atomic.auto_generated_guid, input_arguments
+        ) as runner:
+            await ctx.report_progress(
+                progress=0, total=3, message="Running prerequisites..."
             )
+            await asyncio.to_thread(runner.run_phase, "prerequisites", get_prereqs=True)
 
-        # Aggregate outputs from all phases
+            await ctx.report_progress(progress=1, total=3, message="Executing test...")
+            await asyncio.to_thread(runner.run_phase, "execution")
+
+            await ctx.report_progress(progress=2, total=3, message="Running cleanup...")
+            await asyncio.to_thread(runner.run_phase, "cleanup", cleanup=True)
+
+            await ctx.report_progress(progress=3, total=3, message="Complete")
+
+        execution_time = time.time() - start_time
+        outputs = runner.captured_outputs
+
         stdout_parts = []
         stderr_parts = []
         exit_codes = []
-
-        for output in result_data:
+        for output in outputs:
             phase = output.get("phase", "unknown")
             stdout_parts.append(f"[{phase}] {output.get('output', '')}")
             stderr_parts.append(f"[{phase}] {output.get('errors', '')}")
             if output.get("return_code") is not None:
                 exit_codes.append(output.get("return_code"))
 
-        # Determine success based on exit codes
         success = all(code == 0 for code in exit_codes) if exit_codes else True
-        final_exit_code = exit_codes[-1] if exit_codes else 0
-
+        ctx.info(f"Execution complete in {execution_time:.2f}s, success={success}")
         return ExecuteAtomicOutput(
             success=success,
             atomic_name=matching_atomic.name,
@@ -261,15 +235,14 @@ Would you like to use the default value or provide a custom value?
             execution_time=execution_time,
             stdout="\n".join(stdout_parts),
             stderr="\n".join(stderr_parts),
-            exit_code=final_exit_code,
+            exit_code=exit_codes[-1] if exit_codes else 0,
         )
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse execution result: {e}")
+    except Exception as e:
         return ExecuteAtomicOutput(
             success=False,
             atomic_name=matching_atomic.name,
             technique_id=matching_atomic.technique_id or "Unknown",
             platform=", ".join(matching_atomic.supported_platforms),
-            execution_time=execution_time,
-            error=f"Failed to parse execution result: {e}",
+            execution_time=time.time() - start_time,
+            error=f"Error running test: {e}",
         )

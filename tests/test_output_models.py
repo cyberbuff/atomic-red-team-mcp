@@ -13,32 +13,25 @@ def test_query_atomics_output():
     """Test QueryAtomicsOutput model."""
     output = QueryAtomicsOutput(
         total_results=10,
-        returned_count=5,
         atomics=[],
-        has_more=True,
-        next_offset=5,
+        next_cursor="opaque-cursor-string",
         query_metadata={"query": "test"},
     )
 
     assert output.total_results == 10
-    assert output.returned_count == 5
-    assert output.has_more
-    assert output.next_offset == 5
+    assert output.next_cursor == "opaque-cursor-string"
 
 
 def test_query_atomics_output_no_more():
     """Test QueryAtomicsOutput when no more results."""
     output = QueryAtomicsOutput(
         total_results=5,
-        returned_count=5,
         atomics=[],
-        has_more=False,
-        next_offset=None,
+        next_cursor=None,
         query_metadata={},
     )
 
-    assert not output.has_more
-    assert output.next_offset is None
+    assert output.next_cursor is None
 
 
 def test_validation_output_success():
@@ -136,10 +129,8 @@ def test_query_atomics_output_with_atomics():
 
     output = QueryAtomicsOutput(
         total_results=1,
-        returned_count=1,
         atomics=[atomic],
-        has_more=False,
-        next_offset=None,
+        next_cursor=None,
         query_metadata={},
     )
 
@@ -151,17 +142,15 @@ def test_output_model_serialization():
     """Test that output models can be serialized to dict."""
     output = QueryAtomicsOutput(
         total_results=10,
-        returned_count=5,
         atomics=[],
-        has_more=True,
-        next_offset=5,
+        next_cursor="abc123",
         query_metadata={"query": "test"},
     )
 
     dict_output = output.model_dump()
 
     assert dict_output["total_results"] == 10
-    assert dict_output["has_more"] is True
+    assert dict_output["next_cursor"] == "abc123"
 
 
 def test_validation_output_json_serialization():

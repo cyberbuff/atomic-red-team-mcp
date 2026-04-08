@@ -1,7 +1,7 @@
 """Tests for refresh_atomics tool."""
 
 import uuid
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -11,12 +11,20 @@ from atomic_red_team_mcp.tools.refresh_atomics import refresh_atomics
 
 @pytest.fixture
 def mock_context():
-    """Create a mock context with lifespan context."""
+    """Create a mock context with lifespan context dict."""
     ctx = Mock()
-    ctx.request_context = Mock()
-    ctx.request_context.lifespan_context = Mock()
-    ctx.request_context.lifespan_context.atomics = []
+    ctx.lifespan_context = {"atomics": [], "index": None}
     return ctx
+
+
+@pytest.fixture
+def mock_progress():
+    """Create a mock Progress dependency."""
+    progress = AsyncMock()
+    progress.set_total = AsyncMock()
+    progress.set_message = AsyncMock()
+    progress.increment = AsyncMock()
+    return progress
 
 
 @pytest.fixture
@@ -34,7 +42,7 @@ def sample_atomics():
 
 
 @pytest.mark.anyio
-async def test_refresh_atomics_success(mock_context, sample_atomics):
+async def test_refresh_atomics_success(mock_context, mock_progress, sample_atomics):
     """Test successful refresh updates context and returns correct output."""
     with (
         patch(
@@ -44,8 +52,9 @@ async def test_refresh_atomics_success(mock_context, sample_atomics):
             "atomic_red_team_mcp.tools.refresh_atomics.load_atomics",
             return_value=sample_atomics,
         ) as mock_load,
+        patch("atomic_red_team_mcp.tools.refresh_atomics.create_index"),
     ):
-        result = await refresh_atomics(mock_context)
+        result = await refresh_atomics(mock_context, progress=mock_progress)
 
     mock_download.assert_called_once_with(force=True)
     mock_load.assert_called_once()
@@ -53,17 +62,19 @@ async def test_refresh_atomics_success(mock_context, sample_atomics):
     assert isinstance(result, RefreshAtomicsOutput)
     assert result.success is True
     assert result.atomics_count == len(sample_atomics)
-    assert mock_context.request_context.lifespan_context.atomics == sample_atomics
+    assert mock_context.lifespan_context["atomics"] == sample_atomics
 
 
 @pytest.mark.anyio
-async def test_refresh_atomics_failure_returns_structured_output(mock_context):
+async def test_refresh_atomics_failure_returns_structured_output(
+    mock_context, mock_progress
+):
     """Test that download failures return success=False instead of raising."""
     with patch(
         "atomic_red_team_mcp.tools.refresh_atomics.download_atomics",
         side_effect=Exception("Network error"),
     ):
-        result = await refresh_atomics(mock_context)
+        result = await refresh_atomics(mock_context, progress=mock_progress)
 
     assert isinstance(result, RefreshAtomicsOutput)
     assert result.success is False
@@ -72,7 +83,9 @@ async def test_refresh_atomics_failure_returns_structured_output(mock_context):
 
 
 @pytest.mark.anyio
-async def test_refresh_atomics_load_failure_returns_structured_output(mock_context):
+async def test_refresh_atomics_load_failure_returns_structured_output(
+    mock_context, mock_progress
+):
     """Test that load failures also return success=False."""
     with (
         patch("atomic_red_team_mcp.tools.refresh_atomics.download_atomics"),
@@ -81,7 +94,7 @@ async def test_refresh_atomics_load_failure_returns_structured_output(mock_conte
             side_effect=Exception("Parse error"),
         ),
     ):
-        result = await refresh_atomics(mock_context)
+        result = await refresh_atomics(mock_context, progress=mock_progress)
 
     assert isinstance(result, RefreshAtomicsOutput)
     assert result.success is False

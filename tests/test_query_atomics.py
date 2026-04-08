@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from atomic_red_team_mcp.models import CommandExecutor, MetaAtomic, QueryAtomicsOutput
+from atomic_red_team_mcp.services import create_index
 from atomic_red_team_mcp.tools.query_atomics import query_atomics
 
 
@@ -13,11 +14,8 @@ from atomic_red_team_mcp.tools.query_atomics import query_atomics
 def mock_context():
     """Create a mock context with sample atomic tests."""
     ctx = Mock()
-    ctx.request_context = Mock()
-    ctx.request_context.lifespan_context = Mock()
 
-    # Create sample atomic tests
-    ctx.request_context.lifespan_context.atomics = [
+    atomics = [
         MetaAtomic(
             name="Test PowerShell Execution",
             description="Test PowerShell execution",
@@ -37,6 +35,7 @@ def mock_context():
             auto_generated_guid=uuid.UUID("b9c41029-8d2a-4661-ab83-e5104c1cb668"),
         ),
     ]
+    ctx.lifespan_context = {"atomics": atomics, "index": create_index(atomics)}
 
     return ctx
 
@@ -47,8 +46,7 @@ def test_query_basic(mock_context):
 
     assert isinstance(result, QueryAtomicsOutput)
     assert result.total_results >= 0
-    assert result.returned_count <= result.total_results
-    assert len(result.atomics) == result.returned_count
+    assert len(result.atomics) <= result.total_results
 
 
 def test_query_with_technique_id(mock_context):
@@ -82,21 +80,25 @@ def test_query_with_guid(mock_context):
 
 
 def test_query_pagination(mock_context):
-    """Test pagination works correctly."""
-    # First page
-    page1 = query_atomics(mock_context, query="test", limit=1, offset=0)
+    """Test cursor-based pagination works correctly."""
+    page1 = query_atomics(mock_context, query="test", limit=1)
 
-    assert page1.returned_count <= 1
+    assert len(page1.atomics) <= 1
     if page1.total_results > 1:
-        assert page1.has_more
-        assert page1.next_offset == 1
+        assert page1.next_cursor is not None
+        # Page 2 using cursor
+        page2 = query_atomics(
+            mock_context, query="test", limit=1, cursor=page1.next_cursor
+        )
+        assert len(page2.atomics) <= 1
     else:
-        assert not page1.has_more
+        assert page1.next_cursor is None
 
 
 def test_query_empty_query():
     """Test that empty query raises ValueError."""
     ctx = Mock()
+    ctx.lifespan_context = {"atomics": [], "index": None}
     with pytest.raises(ValueError, match="Query parameter cannot be empty"):
         query_atomics(ctx, query="")
 
@@ -104,6 +106,7 @@ def test_query_empty_query():
 def test_query_invalid_technique_id():
     """Test that invalid technique ID format raises ValueError."""
     ctx = Mock()
+    ctx.lifespan_context = {"atomics": [], "index": None}
     with pytest.raises(ValueError, match="Invalid technique ID format"):
         query_atomics(ctx, query="test", technique_id="T1234X")
 
@@ -111,15 +114,15 @@ def test_query_invalid_technique_id():
 def test_query_invalid_limit():
     """Test that invalid limit raises ValueError."""
     ctx = Mock()
-    with pytest.raises(ValueError, match="Invalid limit"):
-        query_atomics(ctx, query="test", limit=101)
+    ctx.lifespan_context = {"atomics": [], "index": None}
+    with pytest.raises(ValueError, match="limit must be between"):
+        query_atomics(ctx, query="test", limit=201)
 
 
-def test_query_negative_offset():
-    """Test that negative offset raises ValueError."""
-    ctx = Mock()
-    with pytest.raises(ValueError, match="Invalid offset"):
-        query_atomics(ctx, query="test", offset=-1)
+def test_query_invalid_cursor(mock_context):
+    """Test that an invalid cursor raises ValueError."""
+    with pytest.raises(ValueError, match="Invalid cursor"):
+        query_atomics(mock_context, query="test", cursor="not-valid-base64!!")
 
 
 def test_query_metadata(mock_context):

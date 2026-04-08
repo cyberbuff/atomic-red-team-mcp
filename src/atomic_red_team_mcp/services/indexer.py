@@ -28,6 +28,7 @@ class AtomicIndex:
         self._technique_index: Dict[str, List[MetaAtomic]] = defaultdict(list)
         self._guid_index: Dict[str, MetaAtomic] = {}
         self._platform_index: Dict[str, List[MetaAtomic]] = defaultdict(list)
+        self._text_cache: Dict[str, str] = {}
         self._build_indexes()
 
     def _build_indexes(self):
@@ -43,6 +44,8 @@ class AtomicIndex:
             if atomic.auto_generated_guid:
                 guid_str = str(atomic.auto_generated_guid)
                 self._guid_index[guid_str] = atomic
+                # Pre-serialize to a searchable text blob once at index time
+                self._text_cache[guid_str] = str(atomic.model_dump()).lower()
 
             # Index by platform
             for platform in atomic.supported_platforms:
@@ -103,6 +106,26 @@ class AtomicIndex:
                         seen_guids.add(guid_str)
                         results.append(atomic)
 
+        return results
+
+    def search_text(
+        self, atomics: List[MetaAtomic], words: List[str]
+    ) -> List[MetaAtomic]:
+        """Filter atomics by full-text search using pre-serialized blobs.
+
+        Args:
+            atomics: Candidate list to filter (already narrowed by index filters)
+            words: Lowercase query words — all must appear (AND logic)
+
+        Returns:
+            Filtered list of atomics where all words match
+        """
+        results = []
+        for atomic in atomics:
+            guid_str = str(atomic.auto_generated_guid)
+            text = self._text_cache.get(guid_str) or str(atomic.model_dump()).lower()
+            if all(word in text for word in words):
+                results.append(atomic)
         return results
 
     def get_techniques(self) -> Set[str]:
