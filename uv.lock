@@ -80,7 +80,7 @@ wheels = [
 
 [[package]]
 name = "atomic-red-team-mcp"
-version = "1.3.1"
+version = "1.3.2"
 source = { editable = "." }
 dependencies = [
     { name = "atomic-operator" },
