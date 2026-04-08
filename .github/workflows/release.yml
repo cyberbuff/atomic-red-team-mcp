@@ -60,14 +60,18 @@ jobs:
         run: uv python install 3.10
       - name: Build package
         run: uv build
-      - name: Create GitHub Release
+      - name: Upload assets to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           REF_NAME: ${{ github.ref_name }}
         run: |
-          gh release create "$REF_NAME" \
-            dist/*.whl dist/*.tar.gz \
-            --generate-notes
+          if gh release view "$REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$REF_NAME" dist/*.whl dist/*.tar.gz --clobber
+          else
+            gh release create "$REF_NAME" \
+              dist/*.whl dist/*.tar.gz \
+              --generate-notes
+          fi
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # release/v1
         with:
