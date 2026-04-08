@@ -54,11 +54,21 @@ jobs:
           VERSION_BUMP: ${{ github.event.inputs.version_bump }}
         run: |
           echo "Bumping $VERSION_BUMP version..."
-          uv tool run bump-my-version bump "$VERSION_BUMP"
+          uv tool run bump-my-version bump "$VERSION_BUMP" --no-commit --no-tag
 
           NEW_VERSION=$(uv tool run bump-my-version show current_version)
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
+      - name: Update lockfile
+        run: uv lock
+      - name: Commit and tag version bump
+        env:
+          OLD_VERSION: ${{ steps.current_version.outputs.version }}
+          NEW_VERSION: ${{ steps.bump_version.outputs.version }}
+        run: |
+          git add pyproject.toml src/atomic_red_team_mcp/__init__.py uv.lock
+          git commit -m "Bump version: $OLD_VERSION → $NEW_VERSION"
+          git tag -a "v$NEW_VERSION" -m "Bump version: $OLD_VERSION → $NEW_VERSION"
       - name: Push changes
         env:
           NEW_VERSION: ${{ steps.bump_version.outputs.version }}
