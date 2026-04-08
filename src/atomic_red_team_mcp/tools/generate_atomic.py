@@ -1,8 +1,76 @@
 """Generate atomic test tool using LLM sampling."""
 
+import yaml
 from fastmcp import Context
+from pydantic import ValidationError
 
-from atomic_red_team_mcp.models import Atomic, ValidationOutput
+from atomic_red_team_mcp.models import Atomic
+from atomic_red_team_mcp.models.outputs import GenerateAtomicOutput
+
+_MAX_RETRIES = 3
+
+
+def _build_initial_prompt(
+    technique_id: str, platform: str, description: str, schema_summary: str
+) -> str:
+    focus = f" The test should: {description}." if description else ""
+    return (
+        f"Generate an Atomic Red Team YAML test for MITRE ATT&CK technique {technique_id} "
+        f"targeting {platform}.{focus}\n\n"
+        f"Schema: {schema_summary}\n\n"
+        "Rules:\n"
+        "- Use input_arguments for any hardcoded paths, names, or values\n"
+        "- Include cleanup_command to restore system state\n"
+        "- Do NOT include auto_generated_guid\n"
+        "- Do NOT use echo/print/Write-Host in commands\n"
+        "- Set elevation_required: true only if sudo/admin is needed\n\n"
+        "Reply with ONLY the YAML — no markdown fences, no explanation."
+    )
+
+
+def _build_fix_prompt(previous_yaml: str, issues: list[str]) -> str:
+    issues_text = "\n".join(f"- {i}" for i in issues)
+    return (
+        "The following Atomic Red Team YAML has issues that must be fixed:\n\n"
+        f"{previous_yaml}\n\n"
+        f"Issues to fix:\n{issues_text}\n\n"
+        "Reply with ONLY the corrected YAML — no markdown fences, no explanation."
+    )
+
+
+def _strip_fences(text: str) -> str:
+    if text.startswith("```"):
+        lines = text.splitlines()
+        return "\n".join(line for line in lines if not line.startswith("```")).strip()
+    return text
+
+
+def _collect_issues(yaml_text: str) -> tuple[Atomic | None, list[str]]:
+    """Parse and validate yaml_text. Returns (atomic, issues) where issues is empty on success."""
+    try:
+        atomic_data = yaml.safe_load(yaml_text)
+    except yaml.YAMLError as e:
+        return None, [f"YAML parse error: {e}"]
+
+    if not atomic_data:
+        return None, ["YAML is empty — the response contained no content"]
+
+    issues = []
+    if "auto_generated_guid" in atomic_data:
+        issues.append(
+            "Remove 'auto_generated_guid' — the system generates this automatically"
+        )
+    if atomic_data.get("executor", {}).get("command"):
+        cmd = atomic_data["executor"]["command"].lower()
+        if "echo" in cmd or "print" in cmd or "write-host" in cmd:
+            issues.append("Avoid echo/print/Write-Host statements in test commands")
+
+    try:
+        atomic = Atomic(**atomic_data)
+    except (ValidationError, Exception) as e:
+        return None, issues + [f"Schema validation error: {e}"]
+
+    return atomic, issues
 
 
 async def generate_atomic(
@@ -10,12 +78,12 @@ async def generate_atomic(
     technique_id: str,
     platform: str = "linux",
     description: str = "",
-) -> ValidationOutput:
+) -> GenerateAtomicOutput:
     """Generate an atomic test for a MITRE ATT&CK technique using AI assistance.
 
     Uses the MCP client's LLM to draft an atomic test YAML for the given technique and
-    platform, then validates it automatically. Returns a ValidationOutput so you can
-    immediately see if the generated test is ready to use or needs adjustments.
+    platform, then validates it automatically. If the generated test has errors or
+    warnings, re-samples up to 3 times to fix them before returning.
 
     Args:
         technique_id: MITRE ATT&CK technique ID (e.g., "T1059.001").
@@ -29,11 +97,12 @@ async def generate_atomic(
                      for the technique.
 
     Returns:
-        ValidationOutput: Validation result for the generated YAML, containing:
-            - valid (bool): Whether the generated test passes schema validation
+        GenerateAtomicOutput: Result containing:
+            - valid (bool): Whether the final test passes schema validation
             - message (str): Success or error message
             - atomic_name (str): Name of the generated test (if valid)
             - supported_platforms (list): Platforms declared in the test (if valid)
+            - yaml (str): Generated YAML content (if valid)
             - warnings (list): Best-practice warnings to address (if any)
             - error (str): Validation error details (if invalid)
 
@@ -51,88 +120,59 @@ async def generate_atomic(
         f"Valid platforms: windows, linux, macos, office-365, azure-ad, containers."
     )
 
-    focus = f" The test should: {description}." if description else ""
-    prompt = (
-        f"Generate an Atomic Red Team YAML test for MITRE ATT&CK technique {technique_id} "
-        f"targeting {platform}.{focus}\n\n"
-        f"Schema: {schema_summary}\n\n"
-        "Rules:\n"
-        "- Use input_arguments for any hardcoded paths, names, or values\n"
-        "- Include cleanup_command to restore system state\n"
-        "- Do NOT include auto_generated_guid\n"
-        "- Do NOT use echo/print/Write-Host in commands\n"
-        "- Set elevation_required: true only if sudo/admin is needed\n\n"
-        "Reply with ONLY the YAML — no markdown fences, no explanation."
-    )
+    prompt = _build_initial_prompt(technique_id, platform, description, schema_summary)
+    yaml_text: str = ""
 
-    try:
-        result = await ctx.sample(prompt, max_tokens=1024)
-        yaml_text = result.text.strip()
-
-        # Strip markdown code fences if the LLM added them anyway
-        if yaml_text.startswith("```"):
-            lines = yaml_text.splitlines()
-            yaml_text = "\n".join(
-                line for line in lines if not line.startswith("```")
-            ).strip()
-    except Exception as e:
-        return ValidationOutput(
-            valid=False,
-            message="Sampling failed",
-            error=f"Could not sample from LLM: {e}. Ensure the MCP client supports server-side sampling.",
-        )
-
-    # Validate the generated YAML
-    import yaml
-    from pydantic import ValidationError
-
-    try:
-        atomic_data = yaml.safe_load(yaml_text)
-    except yaml.YAMLError as e:
-        return ValidationOutput(
-            valid=False,
-            message="Generated YAML is invalid",
-            error=f"YAML parse error: {e}",
-        )
-
-    if not atomic_data:
-        return ValidationOutput(
-            valid=False,
-            message="Generated YAML is empty",
-            error="The LLM returned empty content.",
-        )
-
-    warnings = []
-    if "auto_generated_guid" in atomic_data:
-        warnings.append(
-            "WARNING: Remove 'auto_generated_guid' - system generates this automatically"
-        )
-    if atomic_data.get("executor", {}).get("command"):
-        cmd = atomic_data["executor"]["command"].lower()
-        if "echo" in cmd or "print" in cmd or "write-host" in cmd:
-            warnings.append(
-                "WARNING: Avoid echo/print/Write-Host statements in test commands"
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            result = await ctx.sample(prompt)
+            yaml_text = _strip_fences(result.text.strip())
+        except Exception as e:
+            return GenerateAtomicOutput(
+                valid=False,
+                message="Sampling failed",
+                error=f"Could not sample from LLM: {e}. Ensure the MCP client supports server-side sampling.",
             )
 
-    try:
-        atomic = Atomic(**atomic_data)
-    except (ValidationError, Exception) as e:
-        return ValidationOutput(
-            valid=False,
-            message="Generated test failed schema validation",
-            error=str(e),
+        atomic, issues = _collect_issues(yaml_text)
+
+        if not issues and atomic is not None:
+            ctx.info(
+                f"Generated atomic test '{atomic.name}' for {technique_id}/{platform}"
+            )
+            return GenerateAtomicOutput(
+                valid=True,
+                message=f"Generated atomic test '{atomic.name}' is valid and ready to use.",
+                atomic_name=atomic.name,
+                supported_platforms=atomic.supported_platforms,
+                yaml=yaml_text,
+            )
+
+        if attempt < _MAX_RETRIES:
+            ctx.info(
+                f"Attempt {attempt}/{_MAX_RETRIES} had issues, resampling to fix: {issues}"
+            )
+            prompt = _build_fix_prompt(yaml_text, issues)
+
+    # Final attempt still had issues
+    atomic, issues = _collect_issues(yaml_text)
+    if atomic is not None:
+        # Valid but has warnings — return with warnings
+        msg = "Generated atomic test is valid with warnings:\n" + "\n".join(issues)
+        ctx.info(
+            f"Generated atomic test '{atomic.name}' for {technique_id}/{platform} (with warnings)"
+        )
+        return GenerateAtomicOutput(
+            valid=True,
+            message=msg,
+            atomic_name=atomic.name,
+            supported_platforms=atomic.supported_platforms,
+            yaml=yaml_text,
+            warnings=issues,
         )
 
-    if warnings:
-        msg = "Generated atomic test is valid with warnings:\n" + "\n".join(warnings)
-    else:
-        msg = f"Generated atomic test '{atomic.name}' is valid and ready to use."
-
-    ctx.info(f"Generated atomic test '{atomic.name}' for {technique_id}/{platform}")
-    return ValidationOutput(
-        valid=True,
-        message=msg,
-        atomic_name=atomic.name,
-        supported_platforms=atomic.supported_platforms,
-        warnings=warnings if warnings else None,
+    return GenerateAtomicOutput(
+        valid=False,
+        message=f"Failed to generate a valid atomic test after {_MAX_RETRIES} attempts",
+        error="\n".join(issues),
     )

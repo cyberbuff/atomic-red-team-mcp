@@ -25,6 +25,7 @@ from atomic_red_team_mcp.models.atomic import (
 )
 from atomic_red_team_mcp.models.outputs import (
     ExecuteAtomicOutput,
+    GenerateAtomicOutput,
     QueryAtomicsOutput,
     RefreshAtomicsOutput,
     ServerInfoOutput,
@@ -42,6 +43,7 @@ __all__ = [
     "Executor",
     "ExecutorType",
     "ExecuteAtomicOutput",
+    "GenerateAtomicOutput",
     "FloatArg",
     "InputArgType",
     "IntArg",

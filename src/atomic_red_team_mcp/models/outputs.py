@@ -56,6 +56,35 @@ class ValidationOutput(BaseModel):
     )
 
 
+class GenerateAtomicOutput(BaseModel):
+    """Structured output for generate_atomic tool.
+
+    Provides validation status alongside the generated YAML so callers
+    can immediately inspect, save, or further modify the test.
+    """
+
+    valid: bool = Field(
+        description="Whether the generated test passed structural validation"
+    )
+    message: str = Field(description="Human-readable validation message")
+    atomic_name: Optional[str] = Field(
+        default=None, description="Name of the generated test (only if valid)"
+    )
+    supported_platforms: Optional[List[Platform]] = Field(
+        default=None, description="Platforms the test supports (only if valid)"
+    )
+    yaml: Optional[str] = Field(
+        default=None, description="Generated YAML content (only if valid)"
+    )
+    warnings: Optional[List[str]] = Field(
+        default=None,
+        description="List of best practice warnings that should be addressed",
+    )
+    error: Optional[str] = Field(
+        default=None, description="Detailed error message (only if invalid)"
+    )
+
+
 class RefreshAtomicsOutput(BaseModel):
     """Structured output for refresh_atomics tool.
 
