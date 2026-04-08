@@ -18,6 +18,10 @@ repos:
         - id: ruff-check
           args: [ --fix ]
         - id: ruff-format
+    - repo: https://github.com/hadolint/hadolint
+      rev: v2.14.0
+      hooks:
+        - id: hadolint-docker
     - repo: https://github.com/zizmorcore/zizmor-pre-commit
       rev: v1.23.1
       hooks:
