@@ -16,6 +16,9 @@ from atomic_red_team_mcp.services.executor import AtomicRunner
 async def execute_atomic(
     ctx: Context,
     auto_generated_guid: Optional[str] = None,
+    run_prerequisites: bool = True,
+    run_execution: bool = True,
+    run_cleanup: bool = True,
 ) -> ExecuteAtomicOutput:
     """Execute an atomic test on the server.
 
@@ -37,6 +40,12 @@ async def execute_atomic(
                             3. Pass that GUID to this function
 
                             If not provided, you will be prompted to enter it interactively.
+        run_prerequisites: Whether to run the prerequisites phase (default: True).
+                           Set to False to skip fetching/installing prerequisites.
+        run_execution: Whether to run the execution phase (default: True).
+                       Set to False to do a dry run without executing the test.
+        run_cleanup: Whether to run the cleanup phase (default: True).
+                     Set to False to skip cleanup after execution.
 
     Returns:
         ExecuteAtomicOutput: Structured output containing:
@@ -196,21 +205,44 @@ async def execute_atomic(
 
     start_time = time.time()
     try:
+        total_phases = sum([run_prerequisites, run_execution, run_cleanup])
+        current_phase = 0
+
         with AtomicRunner(
             matching_atomic.auto_generated_guid, input_arguments
         ) as runner:
+            if run_prerequisites:
+                await ctx.report_progress(
+                    progress=current_phase,
+                    total=total_phases,
+                    message="Running prerequisites...",
+                )
+                await asyncio.to_thread(
+                    runner.run_phase, "prerequisites", get_prereqs=True
+                )
+                current_phase += 1
+
+            if run_execution:
+                await ctx.report_progress(
+                    progress=current_phase,
+                    total=total_phases,
+                    message="Executing test...",
+                )
+                await asyncio.to_thread(runner.run_phase, "execution")
+                current_phase += 1
+
+            if run_cleanup:
+                await ctx.report_progress(
+                    progress=current_phase,
+                    total=total_phases,
+                    message="Running cleanup...",
+                )
+                await asyncio.to_thread(runner.run_phase, "cleanup", cleanup=True)
+                current_phase += 1
+
             await ctx.report_progress(
-                progress=0, total=3, message="Running prerequisites..."
+                progress=total_phases, total=total_phases, message="Complete"
             )
-            await asyncio.to_thread(runner.run_phase, "prerequisites", get_prereqs=True)
-
-            await ctx.report_progress(progress=1, total=3, message="Executing test...")
-            await asyncio.to_thread(runner.run_phase, "execution")
-
-            await ctx.report_progress(progress=2, total=3, message="Running cleanup...")
-            await asyncio.to_thread(runner.run_phase, "cleanup", cleanup=True)
-
-            await ctx.report_progress(progress=3, total=3, message="Complete")
 
         execution_time = time.time() - start_time
         outputs = runner.captured_outputs
