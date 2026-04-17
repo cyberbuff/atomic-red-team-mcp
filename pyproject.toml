@@ -21,8 +21,8 @@ dependencies = [
     "pyyaml==6.0.3",
     "pydantic==2.12.5",
     "pydantic-settings==2.13.1",
-    "fastmcp[tasks]==3.2.0",
-    "atomic-operator==0.8.5",
+    "fastmcp[tasks]==3.2.3",
+    "atomic-operator==0.9.0",
 ]
 
 [project.optional-dependencies]
