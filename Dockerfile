@@ -53,7 +53,7 @@ WORKDIR /app
 RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
-USER appuser
+USER 1000
 
 # Make sure 'uv' is on PATH for the appuser
 ENV PATH="/home/appuser/.local/bin:/usr/local/bin:${PATH}"
@@ -70,7 +70,7 @@ COPY --chown=appuser:appuser . .
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD ["curl", "-f", "http://localhost:8000/health"]
 
 # Run the server using the installed CLI command
 CMD ["uv", "run", "python", "-m", "atomic_red_team_mcp"]
